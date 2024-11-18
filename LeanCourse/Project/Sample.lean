@@ -7,5 +7,4 @@ open Function Set Classical
 
 /- recommended whenever you define anything new. -/
 noncomputable section
-
 /- Now write definitions and theorems. -/
