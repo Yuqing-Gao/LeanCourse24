@@ -1,10 +1,41 @@
-/- It is fine to import all of Mathlib in your project.
-This might make the loading time of a file a bit longer. If you want a good chunk of Mathlib, but not everything, you can `import Mathlib.Tactic` and then add more imports as necessary. -/
 import Mathlib
 
-/- open namespaces that you use to shorten names and enable notation. -/
+/- Fredholm Operators over a fixed field enable notation. -/
 open Function Set Classical
 
-/- recommended whenever you define anything new. -/
 noncomputable section
-/- Now write definitions and theorems. -/
+
+/-Remark: During the project, I would like to work in the field ℝ. I am not familiar
+with functional analysis over other normed fields. But, In the definition I can still
+consider general normed fields-/
+class FredholmOperators
+  {𝕜 : Type*} [NontriviallyNormedField 𝕜]
+  {E : Type*} [NormedAddCommGroup E] [NormedSpace 𝕜 E]
+  {F : Type*} [NormedAddCommGroup F] [NormedSpace 𝕜 F]
+  (f : E →L[𝕜] F) [CompleteSpace F] [CompleteSpace E] : Prop :=
+  (finite_dimensional_kernel : FiniteDimensional 𝕜 (LinearMap.ker f))
+  (closed_range : IsClosed (LinearMap.range f:Set F))
+  (finite_dimensional_cokernel : FiniteDimensional 𝕜 (F ⧸ LinearMap.range (f)))
+
+namespace FredholmOperators
+/-- Kernel of a Fredholm operator -/
+def ker {𝕜 : Type*} [NontriviallyNormedField 𝕜]
+  {E : Type*} [NormedAddCommGroup E] [NormedSpace 𝕜 E]
+  {F : Type*} [NormedAddCommGroup F] [NormedSpace 𝕜 F]
+  (f : E →L[𝕜] F) : Submodule 𝕜 E :=LinearMap.ker f
+
+/-- Range of a Fredholm operator -/
+def range {𝕜 : Type*} [NontriviallyNormedField 𝕜]
+  {E : Type*} [NormedAddCommGroup E] [NormedSpace 𝕜 E]
+  {F : Type*} [NormedAddCommGroup F] [NormedSpace 𝕜 F]
+  (f : E →L[𝕜] F) : Submodule 𝕜 F :=LinearMap.range f
+
+/-- Cokernel of a Fredholm operator -/
+def coker {𝕜 : Type*} [NontriviallyNormedField 𝕜]
+  {E : Type*} [NormedAddCommGroup E] [NormedSpace 𝕜 E]
+  {F : Type*} [NormedAddCommGroup F] [NormedSpace 𝕜 F]
+  (f : E →L[𝕜] F) :Module 𝕜 (F ⧸ LinearMap.range (f)) :=
+    Submodule.Quotient.module (LinearMap.range f)
+
+end FredholmOperators
+end
