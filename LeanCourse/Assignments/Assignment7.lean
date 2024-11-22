@@ -169,19 +169,42 @@ for modules over a ring, so feel free to think of `M₁`, `M₂`, `N` and `M'` a
 You might recognize this as the characterization of a *coproduct* in category theory. -/
 
 def coproduct (f : M₁ →ₗ[R] N) (g : M₂ →ₗ[R] N) : M₁ × M₂ →ₗ[R] N where
-  toFun x := sorry
-  map_add' x y := sorry
-  map_smul' r x := sorry
+  toFun x := by
+    use f x.1+ g x.2
+  map_add' x y := by
+    simp
+    exact add_add_add_comm (f x.1) (f y.1) (g x.2) (g y.2)
+  map_smul' r x := by
+    simp
 
 -- this can be useful to have as a simp-lemma, and should be proven by `rfl`
 @[simp] lemma coproduct_def (f : M₁ →ₗ[R] N) (g : M₂ →ₗ[R] N) (x : M₁) (y : M₂) :
-  coproduct f g (x, y) = sorry := sorry
+  coproduct f g (x, y) = f x +g y := by
+    exact rfl
 
 lemma coproduct_unique {f : M₁ →ₗ[R] N} {g : M₂ →ₗ[R] N} {l : M₁ × M₂ →ₗ[R] N} :
     l = coproduct f g ↔
     l.comp (LinearMap.inl R M₁ M₂) = f ∧
     l.comp (LinearMap.inr R M₁ M₂) = g := by {
-  sorry
+      constructor
+      intro hl
+      rw[hl]
+      constructor
+      ext x
+      simp
+      ext x
+      simp
+      intro hli
+      obtain ⟨hli₁,hli₂⟩:=hli
+      ext ⟨x₁,x₂⟩
+      simp
+      calc l (x₁,x₂)=l ((x₁,0)+(0,x₂)):= by simp
+      _=l (x₁,0)+ l (0,x₂):=by exact LinearMap.map_add l (x₁, 0) (0, x₂)
+      _=(l ∘ₗ LinearMap.inl R M₁ M₂) x₁  + (l ∘ₗ LinearMap.inr R M₁ M₂) x₂:=by simp
+      _=f x₁ +g x₂:=by rw[hli₁,hli₂]
+
+
+
   }
 
 
