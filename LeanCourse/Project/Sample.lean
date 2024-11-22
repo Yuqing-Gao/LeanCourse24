@@ -39,3 +39,8 @@ def coker {𝕜 : Type*} [NontriviallyNormedField 𝕜]
 
 end FredholmOperators
 end
+
+section
+/-Remark: Let T : X → Y be a operator so that the range admits a closed
+complementary subspace. Then the range of T is closed.-/
+lemma RangeClosedIfAdmint
