@@ -1,7 +1,7 @@
 import Mathlib
 
 /- Fredholm Operators over a fixed field enable notation. -/
-open Function Set Classical
+open Function Set Classical LinearMap ContinuousLinearMap Submodule
 
 section
 
@@ -66,13 +66,37 @@ lemma RangeClosedIfAdmittingRangeClosedCompletement
   {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
   {F : Type*} [NormedAddCommGroup F] [NormedSpace ℝ F]
   (f : E →L[ℝ] F) [CompleteSpace F] [CompleteSpace E]
-  (h : ∃ C : Subspace ℝ F, IsClosed (C : Set F) ∧
-      ∀ y : F, ∃ u c : F,
-        u ∈ LinearMap.range f ∧
-        c ∈ C ∧ u + c = y ∧
-        ∀ u' c' : F,
-          u' ∈ LinearMap.range f ∧ c' ∈ C ∧ u' + c' = y → u' = u ∧ c' = c) :
-  IsClosed (LinearMap.range f : Set F):=sorry
+  (h : ∃ C : Subspace ℝ F, IsClosed (C : Set F) ∧ IsCompl (LinearMap.range f) C):
+  IsClosed (LinearMap.range f : Set F):=by
+    -- Extract the closed complement `C` and its properties
+    obtain ⟨C, hC_closed, hC_compl⟩ := h
+    -- Since `C` is a closed submodule of `F`, it inherits a complete normed space structure
+    haveI : NormedAddCommGroup C := Submodule.normedAddCommGroup C
+    haveI : NormedSpace ℝ C := Submodule.normedSpace C
+    haveI : CompleteSpace C := IsClosed.completeSpace_coe hC_closed
+    -- The kernel of `f` is closed because `f` is continuous
+    have h_ker_closed : IsClosed (LinearMap.ker f : Set E) := ContinuousLinearMap.isClosed_ker f
+    -- Consider the quotient space `Ē = E / ker f`
+    let E_bar := E ⧸ LinearMap.ker f
+    haveI : NormedAddCommGroup E_bar :=Submodule.Quotient.normedAddCommGroup (LinearMap.ker f)
+    haveI : NormedSpace ℝ E_bar := Submodule.Quotient.normedSpace (LinearMap.ker f) ℝ
+    haveI : CompleteSpace E_bar := Submodule.Quotient.completeSpace (LinearMap.ker f)
+    -- Define the induced map `f̄ : Ē → F`
+    let f_bar_l : NormedAddGroupHom (E ⧸ LinearMap.ker f) F :=
+      NormedAddGroupHom.lift ((LinearMap.ker f) :AddSubgroup E) (f: NormedAddGroupHom E F)
+
+    /-let f_bar : E_bar →L[ℝ] F :=by
+      use f_bar_l
+      have h:Continuous (f_bar_l).toFun:=by sorry
+      exact h-/
+
+/-- Given `f : NormedAddGroupHom M N` such that `f s = 0` for all `s ∈ S`, where,
+`S : AddSubgroup M` is closed, the induced morphism `NormedAddGroupHom (M ⧸ S) N`. -/
+noncomputable def lift {N : Type*} [SeminormedAddCommGroup N] (S : AddSubgroup M)
+    (f : NormedAddGroupHom M N) (hf : ∀ s ∈ S, f s = 0) : NormedAddGroupHom (M ⧸ S) N :=
+  { QuotientAddGroup.lift S f.toAddMonoidHom hf with
+    bound' := ⟨‖f‖, norm_lift_apply_le f hf⟩ }
+
 
 /-Theorem: If T : X → Y is a bounded invertible operator then for all
 p : X → Y with sufficiently small norm T + p is also invertible.-/
@@ -137,7 +161,4 @@ lemma DecompositionOfFredholmPlusε
     ∃ (C : Type*) ,∃_:NormedAddCommGroup C ,∃_:NormedSpace ℝ C,
     ∃ (i :  (E'× K)≃L[ℝ] E), ∃(j: F≃L[ℝ] E'×C), ∃ q:K →L[ℝ] C,
       j∘ (f + p) ∘ i = λ⟨a,b⟩↦⟨a,q b⟩:=by sorry
-
-
-
 end
