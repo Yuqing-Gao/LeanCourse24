@@ -5,8 +5,8 @@ open Function Set Classical LinearMap ContinuousLinearMap Submodule
 
 section
 
-/-Remark: During the project, I would like to work in the field ℝ. I am not familiar
-with functional analysis over other normed fields. But, In the definition I can still
+/-Remark: During the project, we would like to work in the field ℝ. we are not familiar
+with functional analysis over other normed fields. But, In the definition we can still
 consider general normed fields-/
 class FredholmOperators
   {𝕜 : Type*} [NontriviallyNormedField 𝕜]
@@ -74,28 +74,52 @@ lemma RangeClosedIfAdmittingRangeClosedCompletement
     haveI : NormedAddCommGroup C := Submodule.normedAddCommGroup C
     haveI : NormedSpace ℝ C := Submodule.normedSpace C
     haveI : CompleteSpace C := IsClosed.completeSpace_coe hC_closed
-    -- The kernel of `f` is closed because `f` is continuous
-    have h_ker_closed : IsClosed (LinearMap.ker f : Set E) := ContinuousLinearMap.isClosed_ker f
+    -- The kernel of `f` is closed because `f` is continuous, So the quotient is well-behaved
+    have : IsClosed (LinearMap.ker f : Set E) := ContinuousLinearMap.isClosed_ker f
     -- Consider the quotient space `Ē = E / ker f`
     let E_bar := E ⧸ LinearMap.ker f
     haveI : NormedAddCommGroup E_bar :=Submodule.Quotient.normedAddCommGroup (LinearMap.ker f)
     haveI : NormedSpace ℝ E_bar := Submodule.Quotient.normedSpace (LinearMap.ker f) ℝ
     haveI : CompleteSpace E_bar := Submodule.Quotient.completeSpace (LinearMap.ker f)
     -- Define the induced map `f̄ : Ē → F`
-    let f_bar_l : NormedAddGroupHom (E ⧸ LinearMap.ker f) F :=
-      NormedAddGroupHom.lift ((LinearMap.ker f) :AddSubgroup E) (f: NormedAddGroupHom E F)
-
-    /-let f_bar : E_bar →L[ℝ] F :=by
-      use f_bar_l
-      have h:Continuous (f_bar_l).toFun:=by sorry
-      exact h-/
-
-/-- Given `f : NormedAddGroupHom M N` such that `f s = 0` for all `s ∈ S`, where,
-`S : AddSubgroup M` is closed, the induced morphism `NormedAddGroupHom (M ⧸ S) N`. -/
-noncomputable def lift {N : Type*} [SeminormedAddCommGroup N] (S : AddSubgroup M)
-    (f : NormedAddGroupHom M N) (hf : ∀ s ∈ S, f s = 0) : NormedAddGroupHom (M ⧸ S) N :=
-  { QuotientAddGroup.lift S f.toAddMonoidHom hf with
-    bound' := ⟨‖f‖, norm_lift_apply_le f hf⟩ }
+    /- Remark 1. We couldn't believe that we don't have a direct lift method for ContinuousLinearMap QAQ. We have to firstly
+    translate a ContinuousLinearMap into a BoundedLinearMap, use BoundedLinearMap.lift and then translate
+    back. Also this is not the end of story, since in this case the resulting morphism is not defined
+    directly via universal property(like using NormedAddGroupHom.lift), so in the rest of the proof we have to
+    check element-wisely to get something we want, e.g the resulting morphism has the same range as the original
+    morphism and it's injective... This brings many unnecessay workloads.
+    -/
+    let  f_bar_l':NormedAddGroupHom E F:=by
+      use f.toFun
+      simp
+      obtain ⟨M,⟨hM₁,hM₂⟩⟩:=(ContinuousLinearMap.isBoundedLinearMap f).bound
+      use M
+      exact hM₂
+    have hf:∀ s ∈ Submodule.toAddSubgroup (LinearMap.ker f), f_bar_l' s = 0:=by
+      simp
+      exact fun s a ↦ a
+    let f_bar_l : NormedAddGroupHom (E ⧸ LinearMap.ker f) F :=NormedAddGroupHom.lift (Submodule.toAddSubgroup (LinearMap.ker f) :AddSubgroup E) (f_bar_l': NormedAddGroupHom E F) hf
+    let f_bar : E_bar →L[ℝ] F:={
+      toFun:=f_bar_l.toFun
+      map_add':=by
+        simp
+      map_smul':=by
+        simp
+        intro m x
+        induction x using Quotient.ind; rename_i x
+        have h₁:∀x:E, f_bar_l ⟦x⟧=f x:=by exact fun x ↦ rfl
+        have h₂:∀x:E, (⟦x⟧:E_bar)=Submodule.Quotient.mk x:=by exact fun x ↦ rfl
+        rw [h₂]
+        have h₃:Submodule.Quotient.mk (m • x)=m • (Submodule.Quotient.mk x):=Submodule.Quotient.mk_smul (LinearMap.ker f) m x
+        rw[←h₃,←h₂,←h₂,h₁,h₁]
+        exact ContinuousLinearMap.map_smul_of_tower f m x}
+    -- range f = range f_bar
+    have hrange: LinearMap.range f=LinearMap.range f_bar:=by
+      sorry /-Check this by picking elements f_bar([x]) from the range, omitted until we have time. See remark 1-/
+    have hinjectivity: Injective f.toFun:=by
+      sorry /-Also clear from the constrcution, ommitted until we have time. See remark 1-/
+    rw[hrange] at hC_compl
+    rw[hrange]
 
 
 /-Theorem: If T : X → Y is a bounded invertible operator then for all
