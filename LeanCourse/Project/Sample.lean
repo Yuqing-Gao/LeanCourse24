@@ -115,11 +115,53 @@ lemma RangeClosedIfAdmittingRangeClosedCompletement
         exact ContinuousLinearMap.map_smul_of_tower f m x}
     -- range f = range f_bar
     have hrange: LinearMap.range f=LinearMap.range f_bar:=by
-      sorry /-Check this by picking elements f_bar([x]) from the range, omitted until we have time. See remark 1-/
+      /-Check this by picking elements f_bar([x]) from the range, omitted until we have time. See remark 1-/
+      sorry
     have hinjectivity: Injective f.toFun:=by
-      sorry /-Also clear from the constrcution, ommitted until we have time. See remark 1-/
+      /-Also clear from the constrcution, ommitted until we have time. See remark 1-/
+      sorry
     rw[hrange] at hC_compl
     rw[hrange]
+    -- define a morphism S: E_bar ⨁ C→ F, which we will show to be an isomorphism
+    let S: E_bar × C →L[ℝ] F:={
+      toFun:=λ⟨a,b⟩ ↦ (f_bar a) + b
+      map_add':=by
+        intro x y
+        simp
+        abel
+      map_smul':=by
+        intro m ⟨a,b⟩
+        simp
+    }
+    -- S is an bijective continuous linear map. Here is where we apply the assumpption about C
+    rw[isCompl_iff] at hC_compl
+    obtain ⟨hC_compl_inj,hC_compl_sur⟩:=hC_compl
+    have hSinjective: Injective S:=by
+      by_contra hninjS
+      unfold Injective  at hninjS
+      push_neg at hninjS
+      obtain ⟨⟨a₁,a₂⟩,⟨b₁,b₂⟩,hfab,hab⟩:=hninjS
+      unfold S at hfab
+      simp at hfab
+      unfold Disjoint at hC_compl_inj
+      /-Here is trivial, f_bar a₁ - f_bar b₁ belongs to both C and range f_bar.
+      Now invoke hC_compl_inj and the injectivity of f_bar we get a₁=b₁, a₂=b₂, from which we deduce
+      a contradiction-/
+      sorry
+    have hSsurjective: Surjective S:=by
+      unfold Codisjoint at hC_compl_sur
+      /-Much simpler than hSinjective, we just apply hC_compl_sur to range S-/
+      sorry
+    /- Now we apply open mapping theorem to S to show it's a isomorphism in the category of Banach spaces.
+    Then the closed subset E_bar of E_bar ⨁ C under this homeomorphism S should corresponds to a closed subset
+    in F, namely the range f_bar =range f-/
+
+
+
+
+
+
+
 
 
 /-Theorem: If T : X → Y is a bounded invertible operator then for all
