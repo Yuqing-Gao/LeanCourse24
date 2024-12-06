@@ -7,6 +7,8 @@ section
 
 /-Remark: During the project, we would like to work in the field ℝ. we are not familiar
 with functional analysis over other normed fields. But, In the definition we can still
+/-Remark: During the project, we would like to work in the field ℝ. we are not familiar
+with functional analysis over other normed fields. But, In the definition we can still
 consider general normed fields-/
 class FredholmOperators
   {𝕜 : Type*} [NontriviallyNormedField 𝕜]
@@ -67,13 +69,15 @@ lemma RangeClosedIfAdmittingRangeClosedCompletement
   {F : Type*} [NormedAddCommGroup F] [NormedSpace ℝ F]
   (f : E →L[ℝ] F) [CompleteSpace F] [CompleteSpace E]
   (h : ∃ C : Subspace ℝ F, IsClosed (C : Set F) ∧ IsCompl (LinearMap.range f) C):
-  IsClosed (LinearMap.range f : Set F):=by
+  IsClosed (LinearMap.range f : Set F):= by
     -- Extract the closed complement `C` and its properties
     obtain ⟨C, hC_closed, hC_compl⟩ := h
     -- Since `C` is a closed submodule of `F`, it inherits a complete normed space structure
     haveI : NormedAddCommGroup C := Submodule.normedAddCommGroup C
     haveI : NormedSpace ℝ C := Submodule.normedSpace C
     haveI : CompleteSpace C := IsClosed.completeSpace_coe hC_closed
+    -- The kernel of `f` is closed because `f` is continuous, So the quotient is well-behaved
+    have : IsClosed (LinearMap.ker f : Set E) := ContinuousLinearMap.isClosed_ker f
     -- The kernel of `f` is closed because `f` is continuous, So the quotient is well-behaved
     have : IsClosed (LinearMap.ker f : Set E) := ContinuousLinearMap.isClosed_ker f
     -- Consider the quotient space `Ē = E / ker f`
@@ -169,12 +173,51 @@ p : X → Y with sufficiently small norm T + p is also invertible.-/
 theorem BoundedInvertibleOperatorPlusεIsInvertible
   {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
   {F : Type*} [NormedAddCommGroup F] [NormedSpace ℝ F]
-  (f : E →L[ℝ] F)[CompleteSpace E] [CompleteSpace F]
-  (hT_inv : ∃ f_inv : F →L[ℝ] E, f.comp f_inv = ContinuousLinearMap.id ℝ F ∧ f_inv.comp f = ContinuousLinearMap.id ℝ E)
-  :∃ε :ℝ ,ε>0 ∧
-  ∀ (p:E →L[ℝ] F) ,‖p‖ < ε →
-    ∃ S_inv : F →L[ℝ] E,(f + p).comp S_inv = ContinuousLinearMap.id ℝ F ∧
-    S_inv.comp (f + p) = ContinuousLinearMap.id ℝ E :=sorry
+  (f : E →L[ℝ] F) [CompleteSpace E] [CompleteSpace F]
+  (hf : IsInvertible f) :
+  ∃ (ε : ℝ), ε > 0 ∧ ∀ (p : E →L[ℝ] F), ‖p‖ < ε → IsInvertible (f + p) := by
+    have ⟨hf_left, hf_right⟩ := get_inv_spec hf
+    let f_inv := get_inv hf
+    suffices specialcase : ∃ ε₁ > 0, ∀ (q : E →L[ℝ] E), ‖q‖ < ε₁ → @IsInvertible E E _ _ _ _ (ContinuousLinearMap.id ℝ E + q)
+    · obtain ⟨ε₁, hε₁_pos, h⟩ := specialcase
+      use ε₁ / ‖f_inv‖
+      constructor
+      · refine div_pos hε₁_pos ?h.left.hb
+        unfold f_inv
+        exact Ne.lt_of_le (Ne.symm (inv_norm_pos hf)) (norm_nonneg f_inv)
+      · intro p hp
+        let q := f_inv.comp p
+        have q_small : ‖q‖ < ε₁ := by
+          unfold q
+          have := ContinuousLinearMap.opNorm_comp_le f_inv p
+          calc ‖f_inv.comp p‖
+            ≤ ‖f_inv‖ * ‖p‖ := ContinuousLinearMap.opNorm_comp_le _ _
+          _ < ‖f_inv‖ * (ε₁/‖f_inv‖) := by
+            gcongr
+            unfold f_inv
+            exact Ne.lt_of_le (Ne.symm (inv_norm_pos hf)) (norm_nonneg f_inv)
+          _ = ε₁ := by
+            field_simp
+            refine mul_div_cancel_left₀ ε₁ ?ha
+            exact inv_norm_pos hf
+        have h_mid := h q q_small
+        have decomp : f + p = f.comp (ContinuousLinearMap.id ℝ E + q) := by
+          ext x
+          simp only [ContinuousLinearMap.add_apply]
+          apply Eq.symm
+          calc f ((ContinuousLinearMap.id ℝ E + q) x)
+              = f (x + (f_inv (p x))) := by rfl
+            _ = f x + p x := by
+              rw [ContinuousLinearMap.map_add]
+              simp
+              have := ContinuousLinearMap.comp_apply f f_inv (p x)
+              rw [← this, hf_left]
+              simp
+        have : IsInvertible (f.comp (ContinuousLinearMap.id ℝ E + q)) := IsInvertible.comp hf h_mid
+        rw [← decomp] at this
+        exact this
+    · -- ⊢ ∃ ε₁ > 0, ∀ (q : E →L[ℝ] E), ‖q‖ < ε₁ → IsInvertible (ContinuousLinearMap.id ℝ E + q)
+      sorry
 
 /-(Riesz Theorem): The unit ball B in a Banach space X is compact if and
 only if B is finite dimensional.-/
