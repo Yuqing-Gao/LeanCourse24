@@ -67,7 +67,7 @@ lemma RangeClosedIfAdmittingRangeClosedCompletement
   {F : Type*} [NormedAddCommGroup F] [NormedSpace ℝ F]
   (f : E →L[ℝ] F) [CompleteSpace F] [CompleteSpace E]
   (h : ∃ C : Subspace ℝ F, IsClosed (C : Set F) ∧ IsCompl (LinearMap.range f) C):
-  IsClosed (LinearMap.range f : Set F):=by
+  IsClosed (LinearMap.range f : Set F):= by
     -- Extract the closed complement `C` and its properties
     obtain ⟨C, hC_closed, hC_compl⟩ := h
     -- Since `C` is a closed submodule of `F`, it inherits a complete normed space structure
@@ -89,7 +89,7 @@ lemma RangeClosedIfAdmittingRangeClosedCompletement
     check element-wisely to get something we want, e.g the resulting morphism has the same range as the original
     morphism and it's injective... This brings many unnecessay workloads.
     -/
-    let  f_bar_l':NormedAddGroupHom E F:=by
+    let f_bar_l':NormedAddGroupHom E F := by
       use f.toFun
       simp
       obtain ⟨M,⟨hM₁,hM₂⟩⟩:=(ContinuousLinearMap.isBoundedLinearMap f).bound
@@ -114,7 +114,7 @@ lemma RangeClosedIfAdmittingRangeClosedCompletement
         rw[←h₃,←h₂,←h₂,h₁,h₁]
         exact ContinuousLinearMap.map_smul_of_tower f m x}
     -- range f = range f_bar
-    have hrange: LinearMap.range f=LinearMap.range f_bar:=by
+    have hrange: LinearMap.range f=LinearMap.range f_bar := by
       /-Check this by picking elements f_bar([x]) from the range, omitted until we have time. See remark 1-/
       sorry
     have hinjectivity: Injective f.toFun:=by
@@ -160,22 +160,149 @@ lemma RangeClosedIfAdmittingRangeClosedCompletement
 
 
 
+-- 可逆性
+def IsInvertible {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+    [NormedAddCommGroup F] [NormedSpace ℝ F] (f : E →L[ℝ] F) : Prop :=
+  ∃ inv : F →L[ℝ] E, f.comp inv = ContinuousLinearMap.id ℝ F ∧ inv.comp f = ContinuousLinearMap.id ℝ E
 
+-- 获取逆算子
+noncomputable def get_inv {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+    [NormedAddCommGroup F] [NormedSpace ℝ F] {f : E →L[ℝ] F}
+    (hf : IsInvertible f) : F →L[ℝ] E := Classical.choose hf
 
+-- 逆算子性质
+lemma get_inv_spec {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+    [NormedAddCommGroup F] [NormedSpace ℝ F] {f : E →L[ℝ] F}
+    (hf : IsInvertible f) :
+    f.comp (get_inv hf) = ContinuousLinearMap.id ℝ F ∧ (get_inv hf).comp f = ContinuousLinearMap.id ℝ E := Classical.choose_spec hf
 
+-- 复合算子可逆
+lemma IsInvertible.comp {E F G : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+    [NormedAddCommGroup F] [NormedSpace ℝ F] [NormedAddCommGroup G] [NormedSpace ℝ G]
+    {f : F →L[ℝ] G} {g : E →L[ℝ] F}
+    (hf : IsInvertible f) (hg : IsInvertible g) :
+    IsInvertible (f.comp g) := by
+  let f_inv := get_inv hf
+  let g_inv := get_inv hg
+  have ⟨hf_left, hf_right⟩ := get_inv_spec hf
+  have ⟨hg_left, hg_right⟩ := get_inv_spec hg
+  use g_inv.comp f_inv
+  constructor
+  · -- 左逆
+    rw [ContinuousLinearMap.comp_assoc]
+    conv => left; right; rw [← ContinuousLinearMap.comp_assoc, hg_left]; simp
+    exact hf_left
+  · -- 右逆
+    rw [ContinuousLinearMap.comp_assoc]
+    conv => left; right; rw [← ContinuousLinearMap.comp_assoc, hf_right]; simp
+    exact hg_right
 
+-- 复合算子的范数估计
+#check ContinuousLinearMap.opNorm_comp_le
+
+-- 如果存在可逆映射，那么codomain不是平凡的
+lemma exists_of_invertible {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+    [NormedAddCommGroup F] [NormedSpace ℝ F] {f : E →L[ℝ] F}
+    (hf : IsInvertible f) :
+    ∃ y : F, y ≠ 0 := by
+      by_contra FisTrivial
+      push_neg at FisTrivial
+      let f_inv := get_inv hf
+      have ⟨hleft, hright⟩ := get_inv_spec hf
+      have f_zero : ∀ x : E, f x = 0 := by
+        intro x
+        exact FisTrivial (f x)
+      have comp_zero : f_inv.comp f = 0 := by
+        ext x
+        simp [ContinuousLinearMap.comp_apply, f_zero]
+      rw [comp_zero] at hright
+      contrapose! hright
+      rw [← ContinuousLinearMap.one_def]
+      by_contra h01
+
+      sorry
+
+-- 逆算子的范数是正的
+lemma inv_norm_pos {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+    [NormedAddCommGroup F] [NormedSpace ℝ F] {f : E →L[ℝ] F}
+    (hf : IsInvertible f) :
+    ‖get_inv hf‖ ≠ 0 := by
+  intro h
+  -- 如果范数为0，那么这个算子必然是0算子
+  have h1 : get_inv hf = 0 := by
+    simp only [ContinuousLinearMap.ext_iff]
+    intro x
+    have := le_trans ((get_inv hf).le_opNorm x) (by rw [h, zero_mul])
+    rw [norm_le_zero_iff] at this
+    exact this
+  -- 但这与逆算子的性质矛盾，0算子不可能是恒等映射
+  have := (get_inv_spec hf).1  -- f.comp (get_inv hf) = id
+  rw [h1] at this
+  simp at this
+  have : (0 : F →L[ℝ] F) ≠ ContinuousLinearMap.id ℝ F := by
+    intro h2
+    have ⟨y, hy⟩ := exists_of_invertible hf
+    have : (0 : F →L[ℝ] F) y = y := by
+      rw [h2]
+      rfl
+    rw [ContinuousLinearMap.zero_apply] at this
+    exact hy this.symm
+  contradiction
+
+-- neumann 级数收敛
+#check tsum_geometric_nnreal
+#check tsum_coe_mul_geometric_of_norm_lt_one
 
 /-Theorem: If T : X → Y is a bounded invertible operator then for all
 p : X → Y with sufficiently small norm T + p is also invertible.-/
 theorem BoundedInvertibleOperatorPlusεIsInvertible
   {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
   {F : Type*} [NormedAddCommGroup F] [NormedSpace ℝ F]
-  (f : E →L[ℝ] F)[CompleteSpace E] [CompleteSpace F]
-  (hT_inv : ∃ f_inv : F →L[ℝ] E, f.comp f_inv = ContinuousLinearMap.id ℝ F ∧ f_inv.comp f = ContinuousLinearMap.id ℝ E)
-  :∃ε :ℝ ,ε>0 ∧
-  ∀ (p:E →L[ℝ] F) ,‖p‖ < ε →
-    ∃ S_inv : F →L[ℝ] E,(f + p).comp S_inv = ContinuousLinearMap.id ℝ F ∧
-    S_inv.comp (f + p) = ContinuousLinearMap.id ℝ E :=sorry
+  (f : E →L[ℝ] F) [CompleteSpace E] [CompleteSpace F]
+  (hf : IsInvertible f) :
+  ∃ (ε : ℝ), ε > 0 ∧ ∀ (p : E →L[ℝ] F), ‖p‖ < ε → IsInvertible (f + p) := by
+    have ⟨hf_left, hf_right⟩ := get_inv_spec hf
+    let f_inv := get_inv hf
+    suffices specialcase : ∃ ε₁ > 0, ∀ (q : E →L[ℝ] E), ‖q‖ < ε₁ → @IsInvertible E E _ _ _ _ (ContinuousLinearMap.id ℝ E + q)
+    · obtain ⟨ε₁, hε₁_pos, h⟩ := specialcase
+      use ε₁ / ‖f_inv‖
+      constructor
+      · refine div_pos hε₁_pos ?h.left.hb
+        unfold f_inv
+        exact Ne.lt_of_le (Ne.symm (inv_norm_pos hf)) (norm_nonneg f_inv)
+      · intro p hp
+        let q := f_inv.comp p
+        have q_small : ‖q‖ < ε₁ := by
+          unfold q
+          have := ContinuousLinearMap.opNorm_comp_le f_inv p
+          calc ‖f_inv.comp p‖
+            ≤ ‖f_inv‖ * ‖p‖ := ContinuousLinearMap.opNorm_comp_le _ _
+          _ < ‖f_inv‖ * (ε₁/‖f_inv‖) := by
+            gcongr
+            unfold f_inv
+            exact Ne.lt_of_le (Ne.symm (inv_norm_pos hf)) (norm_nonneg f_inv)
+          _ = ε₁ := by
+            field_simp
+            refine mul_div_cancel_left₀ ε₁ ?ha
+            exact inv_norm_pos hf
+        have h_mid := h q q_small
+        have decomp : f + p = f.comp (ContinuousLinearMap.id ℝ E + q) := by
+          ext x
+          simp only [ContinuousLinearMap.add_apply]
+          apply Eq.symm
+          calc f ((ContinuousLinearMap.id ℝ E + q) x)
+              = f (x + (f_inv (p x))) := by rfl
+            _ = f x + p x := by
+              rw [ContinuousLinearMap.map_add]
+              simp
+              have := ContinuousLinearMap.comp_apply f f_inv (p x)
+              rw [← this, hf_left]
+              simp
+        have : IsInvertible (f.comp (ContinuousLinearMap.id ℝ E + q)) := IsInvertible.comp hf h_mid
+        rw [← decomp] at this
+        exact this
+    · -- ⊢ ∃ ε₁ > 0, ∀ (q : E →L[ℝ] E), ‖q‖ < ε₁ → IsInvertible (ContinuousLinearMap.id ℝ E + q)
+      sorry
 
 /-(Riesz Theorem): The unit ball B in a Banach space X is compact if and
 only if B is finite dimensional.-/
