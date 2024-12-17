@@ -60,6 +60,38 @@ noncomputable def ind {𝕜 : Type*} [NontriviallyNormedField 𝕜]
       /-The Module.finrank is non-computable-/
 end FredholmOperators
 
+/-Lemma: A continous linear map f:E →L[ℝ] F induces a continous linear map f_bar:E/ker(f) →L[R] F-/
+noncomputable def QuotientOfContinuousLinearMap
+  {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+  {F : Type*} [NormedAddCommGroup F] [NormedSpace ℝ F]
+  (f : E →L[ℝ] F): E ⧸ (LinearMap.ker f) →L[ℝ] F:=by
+    let f_bar_l':NormedAddGroupHom E F := by
+      use f.toFun
+      simp
+      obtain ⟨M,⟨hM₁,hM₂⟩⟩:=(ContinuousLinearMap.isBoundedLinearMap f).bound
+      use M
+      exact hM₂
+    have hf:∀ s ∈ Submodule.toAddSubgroup (LinearMap.ker f), f_bar_l' s = 0:=by
+      simp
+      exact fun s a ↦ a
+    let f_bar_l : NormedAddGroupHom (E ⧸ LinearMap.ker f) F :=NormedAddGroupHom.lift (Submodule.toAddSubgroup (LinearMap.ker f) :AddSubgroup E) (f_bar_l': NormedAddGroupHom E F) hf
+    let f_bar : E ⧸ (LinearMap.ker f) →L[ℝ] F:={
+      toFun:=f_bar_l.toFun
+      map_add':=by
+        simp
+      map_smul':=by
+        simp
+        intro m x
+        induction x using Quotient.ind; rename_i x
+        have h₁:∀x:E, f_bar_l ⟦x⟧=f x:=by exact fun x ↦ rfl
+        have h₂:∀x:E, (⟦x⟧:E ⧸ (LinearMap.ker f))=Submodule.Quotient.mk x:=by exact fun x ↦ rfl
+        rw [h₂]
+        have h₃:Submodule.Quotient.mk (m • x)=m • (Submodule.Quotient.mk x):=Submodule.Quotient.mk_smul (LinearMap.ker f) m x
+        rw[←h₃,←h₂,←h₂,h₁,h₁]
+        exact ContinuousLinearMap.map_smul_of_tower f m x}
+    use f_bar
+    continuity
+
 /-Lemma: Let T : X → Y be a operator so that the range admits a closed
 complementary subspace. Then the range of T is closed.-/
 lemma RangeClosedIfAdmittingRangeClosedCompletement
@@ -71,54 +103,24 @@ lemma RangeClosedIfAdmittingRangeClosedCompletement
     -- Extract the closed complement `C` and its properties
     obtain ⟨C, hC_closed, hC_compl⟩ := h
     -- Since `C` is a closed submodule of `F`, it inherits a complete normed space structure
-    haveI : NormedAddCommGroup C := Submodule.normedAddCommGroup C
-    haveI : NormedSpace ℝ C := Submodule.normedSpace C
-    haveI : CompleteSpace C := IsClosed.completeSpace_coe hC_closed
+    letI : NormedAddCommGroup C := Submodule.normedAddCommGroup C
+    letI : NormedSpace ℝ C := Submodule.normedSpace C
+    letI : CompleteSpace C := IsClosed.completeSpace_coe hC_closed
     -- The kernel of `f` is closed because `f` is continuous, So the quotient is well-behaved
     have : IsClosed (LinearMap.ker f : Set E) := ContinuousLinearMap.isClosed_ker f
     -- Consider the quotient space `Ē = E / ker f`
     let E_bar := E ⧸ LinearMap.ker f
-    haveI : NormedAddCommGroup E_bar :=Submodule.Quotient.normedAddCommGroup (LinearMap.ker f)
-    haveI : NormedSpace ℝ E_bar := Submodule.Quotient.normedSpace (LinearMap.ker f) ℝ
-    haveI : CompleteSpace E_bar := Submodule.Quotient.completeSpace (LinearMap.ker f)
+    letI : NormedAddCommGroup E_bar :=Submodule.Quotient.normedAddCommGroup (LinearMap.ker f)
+    letI : NormedSpace ℝ E_bar := Submodule.Quotient.normedSpace (LinearMap.ker f) ℝ
+    letI : CompleteSpace E_bar := Submodule.Quotient.completeSpace (LinearMap.ker f)
     -- Define the induced map `f̄ : Ē → F`
-    /- Remark 1. We couldn't believe that we don't have a direct lift method for ContinuousLinearMap QAQ. We have to firstly
-    translate a ContinuousLinearMap into a BoundedLinearMap, use BoundedLinearMap.lift and then translate
-    back. Also this is not the end of story, since in this case the resulting morphism is not defined
-    directly via universal property(like using NormedAddGroupHom.lift), so in the rest of the proof we have to
-    check element-wisely to get something we want, e.g the resulting morphism has the same range as the original
-    morphism and it's injective... This brings many unnecessay workloads.
-    -/
-    let f_bar_l':NormedAddGroupHom E F := by
-      use f.toFun
-      simp
-      obtain ⟨M,⟨hM₁,hM₂⟩⟩:=(ContinuousLinearMap.isBoundedLinearMap f).bound
-      use M
-      exact hM₂
-    have hf:∀ s ∈ Submodule.toAddSubgroup (LinearMap.ker f), f_bar_l' s = 0:=by
-      simp
-      exact fun s a ↦ a
-    let f_bar_l : NormedAddGroupHom (E ⧸ LinearMap.ker f) F :=NormedAddGroupHom.lift (Submodule.toAddSubgroup (LinearMap.ker f) :AddSubgroup E) (f_bar_l': NormedAddGroupHom E F) hf
-    let f_bar : E_bar →L[ℝ] F:={
-      toFun:=f_bar_l.toFun
-      map_add':=by
-        simp
-      map_smul':=by
-        simp
-        intro m x
-        induction x using Quotient.ind; rename_i x
-        have h₁:∀x:E, f_bar_l ⟦x⟧=f x:=by exact fun x ↦ rfl
-        have h₂:∀x:E, (⟦x⟧:E_bar)=Submodule.Quotient.mk x:=by exact fun x ↦ rfl
-        rw [h₂]
-        have h₃:Submodule.Quotient.mk (m • x)=m • (Submodule.Quotient.mk x):=Submodule.Quotient.mk_smul (LinearMap.ker f) m x
-        rw[←h₃,←h₂,←h₂,h₁,h₁]
-        exact ContinuousLinearMap.map_smul_of_tower f m x}
+    let f_bar : E_bar →L[ℝ] F:=QuotientOfContinuousLinearMap f
     -- range f = range f_bar
     have hrange: LinearMap.range f=LinearMap.range f_bar := by
-      /-Check this by picking elements f_bar([x]) from the range, omitted until we have time. See remark 1-/
+      /-Check this by picking elements f_bar([x]) from the range, omitted until we have time.-/
       sorry
     have hinjectivity: Injective f.toFun:=by
-      /-Also clear from the constrcution, ommitted until we have time. See remark 1-/
+      /-Also clear from the constrcution, ommitted until we have time.-/
       sorry
     rw[hrange] at hC_compl
     rw[hrange]
@@ -156,27 +158,29 @@ lemma RangeClosedIfAdmittingRangeClosedCompletement
     /- Now we apply open mapping theorem to S to show it's a isomorphism in the category of Banach spaces.
     Then the closed subset E_bar of E_bar ⨁ C under this homeomorphism S should corresponds to a closed subset
     in F, namely the range f_bar =range f-/
+    have hS:
+#check Equiv.ofBijective
+    let S':=Equiv.ofBijective S
 
 
 
-
--- 可逆性
+-- Invertibility
 def IsInvertible {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     [NormedAddCommGroup F] [NormedSpace ℝ F] (f : E →L[ℝ] F) : Prop :=
   ∃ inv : F →L[ℝ] E, f.comp inv = ContinuousLinearMap.id ℝ F ∧ inv.comp f = ContinuousLinearMap.id ℝ E
 
--- 获取逆算子
+-- Define the inverse operator
 noncomputable def get_inv {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     [NormedAddCommGroup F] [NormedSpace ℝ F] {f : E →L[ℝ] F}
     (hf : IsInvertible f) : F →L[ℝ] E := Classical.choose hf
 
--- 逆算子性质
+-- The property of inverse operator
 lemma get_inv_spec {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     [NormedAddCommGroup F] [NormedSpace ℝ F] {f : E →L[ℝ] F}
     (hf : IsInvertible f) :
     f.comp (get_inv hf) = ContinuousLinearMap.id ℝ F ∧ (get_inv hf).comp f = ContinuousLinearMap.id ℝ E := Classical.choose_spec hf
 
--- 复合算子可逆
+-- The composition of operators is invertible
 lemma IsInvertible.comp {E F G : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     [NormedAddCommGroup F] [NormedSpace ℝ F] [NormedAddCommGroup G] [NormedSpace ℝ G]
     {f : F →L[ℝ] G} {g : E →L[ℝ] F}
@@ -188,19 +192,19 @@ lemma IsInvertible.comp {E F G : Type*} [NormedAddCommGroup E] [NormedSpace ℝ 
   have ⟨hg_left, hg_right⟩ := get_inv_spec hg
   use g_inv.comp f_inv
   constructor
-  · -- 左逆
+  · -- left inverse
     rw [ContinuousLinearMap.comp_assoc]
     conv => left; right; rw [← ContinuousLinearMap.comp_assoc, hg_left]; simp
     exact hf_left
-  · -- 右逆
+  · -- right inverse
     rw [ContinuousLinearMap.comp_assoc]
     conv => left; right; rw [← ContinuousLinearMap.comp_assoc, hf_right]; simp
     exact hg_right
 
--- 复合算子的范数估计
+-- Estimating of norm of the composition of operators
 #check ContinuousLinearMap.opNorm_comp_le
 
--- 如果存在可逆映射，那么codomain不是平凡的
+-- Codomain is not trivial if there exists inverse operator
 lemma exists_of_invertible {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     [NormedAddCommGroup F] [NormedSpace ℝ F] {f : E →L[ℝ] F}
     (hf : IsInvertible f) :
@@ -222,20 +226,20 @@ lemma exists_of_invertible {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ
 
       sorry
 
--- 逆算子的范数是正的
+-- inverse operators have positive norm
 lemma inv_norm_pos {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     [NormedAddCommGroup F] [NormedSpace ℝ F] {f : E →L[ℝ] F}
     (hf : IsInvertible f) :
     ‖get_inv hf‖ ≠ 0 := by
   intro h
-  -- 如果范数为0，那么这个算子必然是0算子
+  -- If norm of a operator is 0, then it's trivial
   have h1 : get_inv hf = 0 := by
     simp only [ContinuousLinearMap.ext_iff]
     intro x
     have := le_trans ((get_inv hf).le_opNorm x) (by rw [h, zero_mul])
     rw [norm_le_zero_iff] at this
     exact this
-  -- 但这与逆算子的性质矛盾，0算子不可能是恒等映射
+  -- 0 operator is not identity
   have := (get_inv_spec hf).1  -- f.comp (get_inv hf) = id
   rw [h1] at this
   simp at this
@@ -249,7 +253,7 @@ lemma inv_norm_pos {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     exact hy this.symm
   contradiction
 
--- neumann 级数收敛
+-- neumann series converges
 #check tsum_geometric_nnreal
 #check tsum_coe_mul_geometric_of_norm_lt_one
 
