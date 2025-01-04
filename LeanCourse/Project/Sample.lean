@@ -3,7 +3,16 @@ import Mathlib
 /- Fredholm Operators over a fixed field enable notation. -/
 open Function Set Classical LinearMap ContinuousLinearMap Submodule
 
-section
+section ContinuousLinearMap
+/-This section contains some auxiliary definitions and lemmas-/
+def ContinuousLinearMap.coker {𝕜 : Type*} [NontriviallyNormedField 𝕜]
+  {E : Type*} [NormedAddCommGroup E] [NormedSpace 𝕜 E]
+  {F : Type*} [NormedAddCommGroup F] [NormedSpace 𝕜 F]
+  (f : E →L[𝕜] F) : Module 𝕜 (F ⧸ LinearMap.range (f)) :=
+    Submodule.Quotient.module (LinearMap.range f)
+end ContinuousLinearMap
+
+section FredholmOperatorsDef
 
 /-Remark: During the project, we would like to work in the field ℝ. we are not familiar
 with functional analysis over other normed fields. But, In the definition we can still
@@ -60,7 +69,8 @@ noncomputable def ind {𝕜 : Type*} [NontriviallyNormedField 𝕜]
       /-The Module.finrank is non-computable-/
 end FredholmOperators
 
-/-Lemma: A continous linear map f:E →L[ℝ] F induces a continous linear map f_bar:E/ker(f) →L[R] F-/
+/-Lemma: A continous linear map f:E →L[ℝ] F induces a continous linear map
+f_bar:E/ker(f) →L[R] F-/
 noncomputable def QuotientOfContinuousLinearMap
   {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
   {F : Type*} [NormedAddCommGroup F] [NormedSpace ℝ F]
@@ -158,10 +168,23 @@ lemma RangeClosedIfAdmittingRangeClosedCompletement
     /- Now we apply open mapping theorem to S to show it's a isomorphism in the category of Banach spaces.
     Then the closed subset E_bar of E_bar ⨁ C under this homeomorphism S should corresponds to a closed subset
     in F, namely the range f_bar =range f-/
-    have hS:
-#check Equiv.ofBijective
-    let S':=Equiv.ofBijective S
-
+    have hSBijective:Bijective S:=by
+      exact ⟨hSinjective,hSsurjective⟩
+    let S':= (Equiv.ofBijective S hSBijective)
+    have h₁S':Continuous ⇑S':=by
+      have hSS':⇑S'=⇑S:=by rfl
+      rw[hSS']
+      exact ContinuousLinearMap.continuous S
+    /-apply the open mapping theorem to show S is open-/
+    have h₂S':IsOpenMap ⇑S':=by
+      have hSS':⇑S'=⇑S:=by rfl
+      rw[hSS']
+      apply ContinuousLinearMap.isOpenMap S hSsurjective
+    /-continous open bijective map is homeomorphism-/
+    let s:=Homeomorph.homeomorphOfContinuousOpen S' h₁S' h₂S'
+    /-We have a homeomorphism s between E_bar⨁C and F, now range f is closed because under this
+    homeomorphism E_bar⨁0 is closed-/
+    sorry
 
 
 -- Invertibility
@@ -310,7 +333,7 @@ theorem BoundedInvertibleOperatorPlusεIsInvertible
 
 /-(Riesz Theorem): The unit ball B in a Banach space X is compact if and
 only if B is finite dimensional.-/
-/-Omitted. Since Riesz Theorem is already in mathlib-/
+/-Omitted. Riesz Theorem is already in mathlib-/
 
 /-Lemma: The following are equivalent:
 1. ker(T) is finite dimensional and Ran(T) is closed.
@@ -359,4 +382,57 @@ lemma DecompositionOfFredholmPlusε
     ∃ (C : Type*) ,∃_:NormedAddCommGroup C ,∃_:NormedSpace ℝ C,
     ∃ (i :  (E'× K)≃L[ℝ] E), ∃(j: F≃L[ℝ] E'×C), ∃ q:K →L[ℝ] C,
       j∘ (f + p) ∘ i = λ⟨a,b⟩↦⟨a,q b⟩:=by sorry
+end FredholmOperatorsDef
+
+#check RangeClosedIfAdmittingRangeClosedCompletement
+/-The following lemma is about how to extract the norm ‖x‖ of x∈X from |ρ(x)|, where X is a Banach
+space and ρ∈X*:=Hom(X,k).
+Lemma: ∀x∈X,‖x‖=sup{|ρ(x)|,ρ∈Hom(X,k)}-/
+lemma Norm_Dual_Characterization
+  {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] [CompleteSpace E]
+  (x:E): ‖x‖ = sSup { ‖ρ x‖|ρ ∈ {ρ: (NormedSpace.Dual ℝ E) | ‖ρ‖ = (1:ℝ) } }:=by sorry
+
+section
+/-Lemma: if T is a bounded linear operator, then so is T*
+Mathlib has similar lemmas, although only formalized for Hilbert spaces.
+But the conclusion actually holds more generally for Banach spaces.
+-/
+variable {X:Type*} [NormedAddCommGroup X] [NormedSpace ℝ X] [CompleteSpace X]
+variable {Y:Type*} [NormedAddCommGroup Y] [NormedSpace ℝ Y] [CompleteSpace Y]
+
+def ContinuousLinearAdjoint (T:X→L[ℝ] Y):NormedSpace.Dual ℝ Y→L[ℝ] NormedSpace.Dual ℝ X:={
+  toFun:=λ ρ↦{
+    toFun:=λ x↦ρ (T x)
+    map_add':=λ x₁ x₂↦by simp
+    map_smul':=λ c x↦by simp
+    cont:=by
+      simp
+      have :(fun x ↦ ρ (T x))=fun x ↦ (ρ∘T) x:=rfl
+      rw[this]
+      refine Continuous.comp ?hg ?hf
+      exact ContinuousLinearMap.continuous ρ
+      exact ContinuousLinearMap.continuous T
+  }
+  map_add':=by exact fun x y ↦ rfl
+  map_smul':=by exact fun m x ↦ rfl
+  cont:=by
+    simp
+    letI:NormedSpace ℝ (NormedSpace.Dual ℝ Y):=NormedSpace.instDual ℝ Y
+    letI:NormedSpace ℝ (NormedSpace.Dual ℝ X):=NormedSpace.instDual ℝ X
+    apply @IsBoundedLinearMap.continuous ℝ _ _ _ _
+    exact isBoundedLinearMap_comp_right T
+}
+
+/-If T has closed range then Coker(T)*=ker(T*)-/
+def CokerDualEqualKerAdjointWhenRangeClosed(T:X→L[ℝ]Y)
+  (hT_closed:IsClosed (range T)):
+    let Coker := Y ⧸ LinearMap.range T
+  /- We need instances ensuring Coker is normed ℝ vector spaces to talk about
+Normed spaces dual over ℝ-/
+    letI : IsClosed (LinearMap.range T : Set Y) := hT_closed
+    letI : NormedAddCommGroup Coker := Submodule.Quotient.normedAddCommGroup (LinearMap.range T)
+    letI : NormedSpace ℝ Coker := Submodule.Quotient.normedSpace (LinearMap.range T) ℝ
+    NormedSpace.Dual ℝ Coker ≃ₗ[ℝ] ker (ContinuousLinearAdjoint T) := sorry
+
+
 end
