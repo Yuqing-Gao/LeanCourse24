@@ -1,4 +1,5 @@
 import Mathlib
+import Mathlib.Topology.Basic
 
 /- Fredholm Operators over a fixed field enable notation. -/
 open Function Set Classical LinearMap ContinuousLinearMap Submodule
@@ -197,12 +198,17 @@ lemma IsInvertible.comp {E F G : Type*} [NormedAddCommGroup E] [NormedSpace ℝ 
     conv => left; right; rw [← ContinuousLinearMap.comp_assoc, hf_right]; simp
     exact hg_right
 
--- 复合算子的范数估计
-#check ContinuousLinearMap.opNorm_comp_le
+-- id 可逆
+lemma Isinvertible.id {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+  : IsInvertible (ContinuousLinearMap.id ℝ E) := by
+  rw [IsInvertible]
+  let inv := ContinuousLinearMap.id ℝ E
+  use inv
+  simp
 
 -- 如果存在可逆映射，那么codomain不是平凡的
 lemma exists_of_invertible {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
-    [NormedAddCommGroup F] [NormedSpace ℝ F] {f : E →L[ℝ] F}
+    [NormedAddCommGroup F] [NormedSpace ℝ F] [Nontrivial E] {f : E →L[ℝ] F}
     (hf : IsInvertible f) :
     ∃ y : F, y ≠ 0 := by
       by_contra FisTrivial
@@ -218,13 +224,11 @@ lemma exists_of_invertible {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ
       rw [comp_zero] at hright
       contrapose! hright
       rw [← ContinuousLinearMap.one_def]
-      by_contra h01
-
-      sorry
+      exact zero_ne_one' (E →L[ℝ] E)
 
 -- 逆算子的范数是正的
 lemma inv_norm_pos {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
-    [NormedAddCommGroup F] [NormedSpace ℝ F] {f : E →L[ℝ] F}
+    [NormedAddCommGroup F] [NormedSpace ℝ F] [Nontrivial E] {f : E →L[ℝ] F}
     (hf : IsInvertible f) :
     ‖get_inv hf‖ ≠ 0 := by
   intro h
@@ -249,16 +253,294 @@ lemma inv_norm_pos {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     exact hy this.symm
   contradiction
 
--- neumann 级数收敛
-#check tsum_geometric_nnreal
-#check tsum_coe_mul_geometric_of_norm_lt_one
+-- neumann 级数收敛（算子版本）
+open Filter
+open Topology
+
+lemma ContinuousLinearMap.tendsto_comp {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+  {F : E →L[ℝ] E} {f : ℕ → E →L[ℝ] E} {g : E →L[ℝ] E}
+  (h : Tendsto f atTop (𝓝 g)) :
+  Tendsto (F.comp ∘ f) atTop (𝓝 (F.comp g)) := by
+  by_cases hF: F = 0
+  · simp [hF]
+    rw [Metric.tendsto_atTop]
+    intro ε hε
+    use 0
+    intro n _
+    simp only [Function.comp_apply]
+    have h1 : ∀ n, (0 : E →L[ℝ] E).comp (f n) = 0 := by
+      intro n
+      ext x
+      simp only [ContinuousLinearMap.zero_comp, ContinuousLinearMap.zero_apply]
+    simp [h1, hε]
+  push_neg at hF
+  rw [Metric.tendsto_atTop]
+  intro ε hε
+  have F_norm_pos : 0 < ‖F‖ := norm_pos_iff.mpr hF
+  let ε' := ε / ‖F‖
+  have ε'_pos : 0 < ε' := div_pos hε F_norm_pos
+  rcases Metric.tendsto_atTop.mp h ε' ε'_pos with ⟨N, hN⟩
+  use N
+  intro n hn
+  specialize hN n hn
+  calc ‖F.comp (f n) - F.comp g‖ = ‖F.comp (f n - g)‖ := by rw [ContinuousLinearMap.comp_sub]
+    _ ≤ ‖F‖ * ‖f n - g‖ := by apply ContinuousLinearMap.opNorm_comp_le
+    _ < ‖F‖ * (ε / ‖F‖) := by exact mul_lt_mul_of_pos_left hN F_norm_pos
+    _ = ε := by ring_nf; field_simp [F_norm_pos.ne']
+
+lemma ContinuousLinearMap.tendsto_comp_right {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+  {F : E →L[ℝ] E} {f : ℕ → E →L[ℝ] E} {g : E →L[ℝ] E}
+  (h : Tendsto f atTop (𝓝 g)) :
+  Tendsto (λ n => (f n).comp F) atTop (𝓝 (g.comp F)) := by
+  by_cases hF: F = 0
+  · simp [hF]
+  push_neg at hF
+  rw [Metric.tendsto_atTop]
+  intro ε hε
+  have F_norm_pos : 0 < ‖F‖ := norm_pos_iff.mpr hF
+  let ε' := ε / ‖F‖
+  have ε'_pos : 0 < ε' := div_pos hε F_norm_pos
+  rcases Metric.tendsto_atTop.mp h ε' ε'_pos with ⟨N, hN⟩
+  use N
+  intro n hn
+  specialize hN n hn
+  calc ‖(f n).comp F - g.comp F‖ = ‖(f n - g).comp F‖ := by rw [ContinuousLinearMap.sub_comp]
+    _ ≤ ‖f n - g‖ * ‖F‖ := by exact opNorm_comp_le (f n - g) F
+    _ < (ε / ‖F‖) * ‖F‖ := by exact mul_lt_mul_of_pos_right hN F_norm_pos
+    _ = ε := by ring_nf; field_simp [F_norm_pos.ne']
+
+lemma ContinuousLinearMap.tendsto_sub {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+  {f g : ℕ → E →L[ℝ] E} {f' g' : E →L[ℝ] E}
+  (hf : Tendsto f atTop (𝓝 f')) (hg : Tendsto g atTop (𝓝 g')) :
+  Tendsto (λ n => f n - g n) atTop (𝓝 (f' - g')) := by
+  rw [@Metric.tendsto_atTop] at hf hg ⊢
+  intro ε hε
+  let ε' := ε/2
+  obtain ⟨N₁, hN₁⟩ := hf ε' (by positivity)
+  obtain ⟨N₂, hN₂⟩ := hg ε' (by positivity)
+  let N := max N₁ N₂
+  use N
+
+  intro n hn
+  specialize hN₁ n (by exact le_trans (le_max_left _ _) hn)
+  specialize hN₂ n (by exact le_trans (le_max_right _ _) hn)
+  rw [dist_eq_norm] at hN₁ hN₂
+
+  calc ‖(f n - g n) - (f' - g')‖
+      = ‖(f n - f') - (g n - g')‖ := by rw [@sub_sub_sub_comm]
+    _ ≤ ‖f n - f'‖ + ‖g n - g'‖ := by apply norm_sub_le
+    _ < ε' + ε' := by exact add_lt_add hN₁ hN₂
+    _ = ε := by ring
+
+lemma Finset.sum_zero_eq_add_sum_one_nat {M : Type*} [AddCommMonoid M] (f : ℕ → M) (k : ℕ)
+  (h: 0 < k):
+  ∑ x in Finset.Ico 0 k, f x = f 0 + ∑ x in Finset.Ico 1 k, f x := by
+  have h1 : Ico 0 k = insert 0 (Ico 1 k) := by exact Eq.symm (Nat.Ico_insert_succ_left h)
+  have h2 : 0 ∉ Ico 1 k := by simp [Finset.mem_Ico]
+  rw [h1, Finset.sum_insert h2]
+
+lemma sum_power_diff_eq_id_sub_pow {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+  (T : E →L[ℝ] E) (k : ℕ):
+  ∑ i in Finset.range k, (T^i - T^(i+1)) = ContinuousLinearMap.id ℝ E - T^k := by
+  by_cases hk: k = 0
+  · simp [hk]
+    exact Eq.symm (sub_eq_zero_of_eq rfl)
+  push_neg at hk
+  have : 0 < k := by exact Nat.zero_lt_of_ne_zero hk
+  calc ∑ i in Finset.range k, (T^i - T^(i+1))
+    = ∑ i in Finset.range k, T^i - ∑ i in Finset.range k, T^(i+1) := by apply Finset.sum_sub_distrib
+    _ = (∑ i in Finset.range k, T^i) - (∑ j in Finset.range k, T^(j+1)) := by
+      congr
+    _ = T^0 + (∑ i in Finset.Ico 1 k, T^i) - (∑ j in Finset.Ico 1 (k+1), T^j) := by
+      rw [Finset.range_eq_Ico, Finset.sum_zero_eq_add_sum_one_nat]
+      · simp; rw [Finset.range_eq_Ico]
+        exact Finset.sum_Ico_add' (fun x => T^x) 0 k 1
+      · exact this
+    _ = T^0 + (∑ i in Finset.Ico 1 k, T^i) - ((∑ j in Finset.Ico 1 k, T^j) + T^k) := by
+      simp
+      rw [Finset.sum_Ico_succ_top]; exact this
+    _ = T^0 - T^k := by
+      rw [add_sub_assoc]; simp; exact Mathlib.Tactic.RingNF.add_neg 1 (T ^ k)
+    _ = ContinuousLinearMap.id ℝ E - T^k := by
+      rfl
+
+lemma neumann_series_invertible {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] [CompleteSpace E]
+  {T : E →L[ℝ] E} (hT : ‖T‖ < 1) (h_T_nonzero : ‖T‖ ≠ 0) :
+  IsInvertible (ContinuousLinearMap.id ℝ E - T) := by
+  unfold IsInvertible
+  let Sk : ℕ → E →L[ℝ] E := λ k ↦ ∑ i in Finset.range (k), T^i
+  have cauchy_Sk : CauchySeq Sk := by
+    let θ := ‖T‖
+    have θ_lt_1 : θ < 1 := hT
+    have pow_bound : ∀ n : ℕ, ‖T^n‖ ≤ θ^n := by
+      unfold θ
+      intro n
+      induction' n with d hd
+      · simp only [pow_zero]
+        rw [@one_def]
+        exact norm_id_le
+      · calc ‖T^(d+1)‖
+            = ‖T * T^d‖ := by rw [@npow_add]; simp; rw [@pow_mul_comm']
+          _ ≤ ‖T‖ * ‖T^d‖ := by exact NormedRing.norm_mul T (T ^ d)
+          _ ≤ ‖T‖ * ‖T‖^d := by refine mul_le_mul_of_nonneg_left hd ?a0; exact ContinuousLinearMap.opNorm_nonneg T
+          _ = θ^(d+1) := by exact Eq.symm (pow_succ' θ d)
+    rw [@Metric.cauchySeq_iff]
+    intro ε hε
+    have h1 : 1 - θ > 0 := by linarith [θ_lt_1]
+    let k₀ := Nat.ceil ((Real.log (ε) + Real.log (1-θ))/ Real.log (θ)) + 1 -- k₀ should be chosen properly
+    use k₀
+    intro l hl k hk
+    rw [dist_eq_norm]
+    unfold Sk
+    -- 讨论k和l的大小
+    by_cases hkl: k ≤ l
+    have : ∑ i ∈ Finset.range l, T ^ i - ∑ i ∈ Finset.range k, T ^ i = ∑ i ∈ Finset.Ico k l, T ^ i := Eq.symm (Finset.sum_Ico_eq_sub (HPow.hPow T) hkl)
+    calc ‖∑ i ∈ Finset.range l, T ^ i - ∑ i ∈ Finset.range k, T ^ i‖
+        = ‖∑ i ∈ Finset.Ico k l, T ^ i‖ := by rw [this]
+      _ ≤ ∑ i ∈ Finset.Ico k l, ‖T ^ i‖ := by
+        induction Finset.Ico k l using Finset.induction with
+        | empty => simp
+        | @insert a s hs ih =>
+          field_simp
+          calc ‖T^a + ∑ i in s, T^i‖
+              ≤ ‖T^a‖ + ‖∑ i in s, T^i‖ := ContinuousLinearMap.opNorm_add_le _ _
+            _ ≤ ‖T^a‖ + ∑ i in s, ‖T^i‖ := by gcongr
+      _ ≤ ∑ i ∈ Finset.Ico k l, θ^i := by exact Finset.sum_le_sum fun i a ↦ pow_bound i
+      _ ≤ θ^(k)/(1-θ) := geom_sum_Ico_le_of_lt_one (ContinuousLinearMap.opNorm_nonneg T) hT
+      _ < ε := by
+        have h_log_neg : Real.log θ < 0 := by rw [← @Real.exp_lt_one_iff, Real.exp_log_eq_abs h_T_nonzero]; simp; exact hT
+        have h_denom_pos : 1 - θ > 0 := by linarith [θ_lt_1]
+        have h_theta_pos : θ > 0 := by unfold θ; exact (LE.le.gt_iff_ne (norm_nonneg T)).mpr h_T_nonzero
+        have h_num_pos : θ ^ k > 0 := by exact pow_pos h_theta_pos k
+        suffices: Real.log (θ^k / (1 - θ)) < Real.log ε
+        · apply (Real.log_lt_log_iff (div_pos h_num_pos h_denom_pos) hε).mp
+          exact this
+        rw [Real.log_div]
+        · simp only [Real.log_pow]
+          rw [@sub_lt_iff_lt_add']
+          suffices: ↑k > (Real.log ε + Real.log (1 - θ)) / Real.log θ
+          · -- 除以一个小于零的数后变号
+            calc ↑k * Real.log θ
+                < ((Real.log ε + Real.log (1 - θ)) / Real.log θ) * Real.log θ := mul_lt_mul_of_neg_right this h_log_neg
+              _ = Real.log ε + Real.log (1 - θ) := by
+                refine div_mul_cancel₀ (Real.log ε + Real.log (1 - θ)) ?h1
+                exact Ne.symm (ne_of_gt h_log_neg)
+              _ = Real.log (1 - θ) + Real.log ε := by rw [add_comm]
+          · have h0: ↑k > ↑⌈(Real.log ε + Real.log (1 - θ)) / Real.log θ⌉₊ := by
+              calc ↑k
+                  ≥ ↑k₀ := Nat.cast_le.mpr hk
+                _ = ↑(⌈(Real.log ε + Real.log (1 - θ)) / Real.log θ⌉₊ + 1) := rfl
+                _ = ↑⌈(Real.log ε + Real.log (1 - θ)) / Real.log θ⌉₊ + 1 := by simp
+                _ > ↑⌈(Real.log ε + Real.log (1 - θ)) / Real.log θ⌉₊ := by exact lt_add_one ⌈(Real.log ε + Real.log (1 - θ)) / Real.log θ⌉₊
+            suffices: ↑⌈(Real.log ε + Real.log (1 - θ)) / Real.log θ⌉₊ ≥ (Real.log ε + Real.log (1 - θ)) / Real.log θ
+            · exact Nat.lt_of_ceil_lt hk
+            · exact Nat.le_ceil ((Real.log ε + Real.log (1 - θ)) / Real.log θ)
+        · linarith
+        · linarith
+    -- when l < k it's similar
+    · push_neg at hkl
+      -- swap the position of k and l
+      calc ‖∑ i ∈ Finset.range l, T ^ i - ∑ i ∈ Finset.range k, T ^ i‖
+        = ‖-(∑ i ∈ Finset.range k, T ^ i - ∑ i ∈ Finset.range l, T ^ i)‖ := by rw [neg_sub]
+        _ = ‖∑ i ∈ Finset.range k, T ^ i - ∑ i ∈ Finset.range l, T ^ i‖ := by rw [norm_neg]
+        _ = ‖∑ i ∈ Finset.Ico l k, T ^ i‖ := by rw [Eq.symm (Finset.sum_Ico_eq_sub (HPow.hPow T) (le_of_lt hkl))]
+        -- then it's similar with what we've done when k ≤ l
+        _ ≤ ∑ i ∈ Finset.Ico l k, ‖T ^ i‖ := by
+          induction Finset.Ico l k using Finset.induction with
+          | empty => simp
+          | @insert a s hs ih =>
+            field_simp
+            calc ‖T^a + ∑ i in s, T^i‖
+                ≤ ‖T^a‖ + ‖∑ i in s, T^i‖ := ContinuousLinearMap.opNorm_add_le _ _
+              _ ≤ ‖T^a‖ + ∑ i in s, ‖T^i‖ := by gcongr
+        _ ≤ ∑ i ∈ Finset.Ico l k, θ^i := by exact Finset.sum_le_sum fun i a ↦ pow_bound i
+        _ ≤ θ^(l)/(1-θ) := geom_sum_Ico_le_of_lt_one (ContinuousLinearMap.opNorm_nonneg T) hT
+        _ < ε := by
+          -- next we do the totally same thing as before
+          have h_log_neg : Real.log θ < 0 := by rw [← @Real.exp_lt_one_iff, Real.exp_log_eq_abs h_T_nonzero]; simp; exact hT
+          have h_denom_pos : 1 - θ > 0 := by linarith [θ_lt_1]
+          have h_theta_pos : θ > 0 := by unfold θ; exact (LE.le.gt_iff_ne (norm_nonneg T)).mpr h_T_nonzero
+          have h_num_pos : θ ^ l > 0 := by exact pow_pos h_theta_pos l
+          suffices: Real.log (θ^l / (1 - θ)) < Real.log ε
+          · apply (Real.log_lt_log_iff (div_pos h_num_pos h_denom_pos) hε).mp
+            exact this
+          rw [Real.log_div]
+          · simp only [Real.log_pow]
+            rw [@sub_lt_iff_lt_add']
+            suffices: ↑l > (Real.log ε + Real.log (1 - θ)) / Real.log θ
+            · calc ↑l * Real.log θ
+                  < ((Real.log ε + Real.log (1 - θ)) / Real.log θ) * Real.log θ := mul_lt_mul_of_neg_right this h_log_neg
+                _ = Real.log ε + Real.log (1 - θ) := by
+                  refine div_mul_cancel₀ (Real.log ε + Real.log (1 - θ)) ?h2
+                  exact Ne.symm (ne_of_gt h_log_neg)
+                _ = Real.log (1 - θ) + Real.log ε := by rw [add_comm]
+            · have h0: ↑l > ↑⌈(Real.log ε + Real.log (1 - θ)) / Real.log θ⌉₊ := by
+                calc ↑l
+                    ≥ ↑k₀ := Nat.cast_le.mpr hl
+                  _ = ↑(⌈(Real.log ε + Real.log (1 - θ)) / Real.log θ⌉₊ + 1) := rfl
+                  _ = ↑⌈(Real.log ε + Real.log (1 - θ)) / Real.log θ⌉₊ + 1 := by simp
+                  _ > ↑⌈(Real.log ε + Real.log (1 - θ)) / Real.log θ⌉₊ := by exact lt_add_one ⌈(Real.log ε + Real.log (1 - θ)) / Real.log θ⌉₊
+              suffices: ↑⌈(Real.log ε + Real.log (1 - θ)) / Real.log θ⌉₊ ≥ (Real.log ε + Real.log (1 - θ)) / Real.log θ
+              · exact Nat.lt_of_ceil_lt hl
+              · exact Nat.le_ceil ((Real.log ε + Real.log (1 - θ)) / Real.log θ)
+          · linarith
+          · linarith
+  have := cauchySeq_tendsto_of_complete cauchy_Sk
+  rcases this with ⟨S, hS⟩
+  use S
+  constructor
+  · -- （Id - T）S = Id
+    have h_left : Tendsto (λ k => ∑ i in Finset.range k, (T^i - T^(i+1))) atTop (𝓝 ((ContinuousLinearMap.id ℝ E - T).comp S)) := by
+      have: ∀ k, ∑ i ∈ Finset.range k, (T ^ i - T ^ (i + 1)) = (ContinuousLinearMap.id ℝ E - T).comp (Sk k) := by
+        intro k
+        calc ∑ i ∈ Finset.range k, (T ^ i - T ^ (i + 1))
+            = ∑ i ∈ Finset.range k, T^i - ∑ i ∈ Finset.range k, T^(i+1) := by rw [Finset.sum_sub_distrib]
+          _ = Sk k - T * Sk k := by unfold Sk; simp; rw [Finset.mul_sum]; congr with i x; refine Eq.symm (DFunLike.congr ?e_f.h.h.h₁ rfl); exact Eq.symm (pow_succ' T i)
+          _ = (ContinuousLinearMap.id ℝ E - T).comp (Sk k) := by rw [ContinuousLinearMap.sub_comp, ContinuousLinearMap.id_comp]; simp; rfl
+      simp [this]
+      -- now we have the goal: ⊢ Tendsto (fun k ↦ Sk k - T.comp (Sk k)) atTop (𝓝 (S - T.comp S))
+      have h2 : Tendsto (T.comp ∘ Sk) atTop (𝓝 (T.comp S)) := ContinuousLinearMap.tendsto_comp hS
+      exact ContinuousLinearMap.tendsto_sub hS h2
+    have h_right : Tendsto (λ k => ∑ i in Finset.range k, (T^i - T^(i+1))) atTop (𝓝 (ContinuousLinearMap.id ℝ E)) := by
+      have: ∀ k, ∑ i in Finset.range k, (T^i - T^(i+1)) = ContinuousLinearMap.id ℝ E - T^k := by intro k; exact sum_power_diff_eq_id_sub_pow T k
+      simp [this]
+      have h2 : Tendsto (fun k ↦ T ^ k) atTop (𝓝 (0)) := tendsto_pow_atTop_nhds_zero_of_norm_lt_one hT
+      have hId : Tendsto (fun _ : ℕ => (1 : E →L[ℝ] E)) atTop (𝓝 1) := by exact tendsto_const_nhds
+      have h : Tendsto (fun k ↦ ContinuousLinearMap.id ℝ E - T ^ k) atTop (𝓝 (1 - 0)) := by apply ContinuousLinearMap.tendsto_sub hId h2
+      have: Tendsto (fun k ↦ ContinuousLinearMap.id ℝ E - T ^ k) atTop (𝓝 (ContinuousLinearMap.id ℝ E)) := by
+        convert ContinuousLinearMap.tendsto_sub hId h2; simp; rfl
+      exact this
+    exact tendsto_nhds_unique h_left h_right
+  · -- S (Id - T) = Id is nearly the same as above
+    have h_left : Tendsto (λ k => ∑ i in Finset.range k, (T^i - T^(i+1))) atTop (𝓝 (S.comp (ContinuousLinearMap.id ℝ E - T))) := by
+      have: ∀ k, ∑ i ∈ Finset.range k, (T ^ i - T ^ (i + 1)) = (Sk k).comp (ContinuousLinearMap.id ℝ E - T) := by
+        intro k
+        calc ∑ i ∈ Finset.range k, (T ^ i - T ^ (i + 1))
+            = ∑ i ∈ Finset.range k, T^i - ∑ i ∈ Finset.range k, T^(i+1) := by rw [Finset.sum_sub_distrib]
+          _ = Sk k - T * Sk k := by unfold Sk; simp; rw [Finset.mul_sum]; congr with i x; refine Eq.symm (DFunLike.congr ?e_f.h.h.h₂ rfl); exact Eq.symm (pow_succ' T i)
+          _ = Sk k - Sk k * T := by unfold Sk; simp; rw [Finset.mul_sum, Finset.sum_mul]; congr with i x; refine DFunLike.congr ?e_f.h.h.h₃ rfl; exact Eq.symm (pow_mul_comm' T i)
+          _ = (Sk k).comp (ContinuousLinearMap.id ℝ E - T) := by rw [ContinuousLinearMap.comp_sub]; simp; rfl
+      simp [this]
+      have h2 : Tendsto (fun k => (Sk k).comp T) atTop (𝓝 (S.comp T)) := ContinuousLinearMap.tendsto_comp_right hS
+      exact ContinuousLinearMap.tendsto_sub hS h2
+    have h_right : Tendsto (λ k => ∑ i in Finset.range k, (T^i - T^(i+1))) atTop (𝓝 (ContinuousLinearMap.id ℝ E)) := by
+      have: ∀ k, ∑ i in Finset.range k, (T^i - T^(i+1)) = ContinuousLinearMap.id ℝ E - T^k := by intro k; exact sum_power_diff_eq_id_sub_pow T k
+      simp [this]
+      have h2 : Tendsto (fun k ↦ T ^ k) atTop (𝓝 (0)) := tendsto_pow_atTop_nhds_zero_of_norm_lt_one hT
+      have hId : Tendsto (fun _ : ℕ => (1 : E →L[ℝ] E)) atTop (𝓝 1) := by exact tendsto_const_nhds
+      have h : Tendsto (fun k ↦ ContinuousLinearMap.id ℝ E - T ^ k) atTop (𝓝 (1 - 0)) := by apply ContinuousLinearMap.tendsto_sub hId h2
+      have: Tendsto (fun k ↦ ContinuousLinearMap.id ℝ E - T ^ k) atTop (𝓝 (ContinuousLinearMap.id ℝ E)) := by
+        convert ContinuousLinearMap.tendsto_sub hId h2; simp; rfl
+      exact this
+    exact tendsto_nhds_unique h_left h_right
+
 
 /-Theorem: If T : X → Y is a bounded invertible operator then for all
 p : X → Y with sufficiently small norm T + p is also invertible.-/
 theorem BoundedInvertibleOperatorPlusεIsInvertible
   {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
   {F : Type*} [NormedAddCommGroup F] [NormedSpace ℝ F]
-  (f : E →L[ℝ] F) [CompleteSpace E] [CompleteSpace F]
+  (f : E →L[ℝ] F) [CompleteSpace E] [Nontrivial E] [CompleteSpace F]
   (hf : IsInvertible f) :
   ∃ (ε : ℝ), ε > 0 ∧ ∀ (p : E →L[ℝ] F), ‖p‖ < ε → IsInvertible (f + p) := by
     have ⟨hf_left, hf_right⟩ := get_inv_spec hf
@@ -302,7 +584,54 @@ theorem BoundedInvertibleOperatorPlusεIsInvertible
         rw [← decomp] at this
         exact this
     · -- ⊢ ∃ ε₁ > 0, ∀ (q : E →L[ℝ] E), ‖q‖ < ε₁ → IsInvertible (ContinuousLinearMap.id ℝ E + q)
-      sorry
+      use 1
+      constructor
+      · linarith
+      intro p hp
+      by_cases hpzero: ‖p‖ = 0  -- when p = 0 it's to prove identity is invertible
+      · have: p = 0 := by exact (opNorm_zero_iff p).mp hpzero
+        rw [this]
+        simp
+        exact Isinvertible.id
+      have hp_neg : ‖-p‖ < 1 := by rw [norm_neg]; exact hp
+      unfold IsInvertible
+      simp
+      conv => congr; rw [← neg_neg p]
+      have neumann := neumann_series_invertible hp_neg
+      unfold IsInvertible at neumann
+      have : ∀ inv : E →L[ℝ] E, (ContinuousLinearMap.id ℝ E - -p).comp inv = inv + (- -p).comp inv := by
+        intro inv
+        rw [ContinuousLinearMap.sub_comp]
+        simp
+      have neg_p_ne_zero: ‖-p‖ ≠ 0 := by push_neg at hpzero; rw [← norm_neg p] at hpzero; exact hpzero
+      rcases neumann neg_p_ne_zero with ⟨inv, hinv⟩
+      rw [this inv] at hinv
+      have : ∀ inv : E →L[ℝ] E, inv.comp (ContinuousLinearMap.id ℝ E - -p) = inv + inv.comp (- -p) := by
+        intro inv
+        rw [ContinuousLinearMap.comp_sub]
+        simp
+      rw [this inv] at hinv
+      exact ⟨inv, hinv⟩
+
+/- Let X be a Banach space and let T ∈ L(X) be compact.
+Then A := Id − T is a Fredholm operator with index zero. -/
+instance id_minus_compact_T_is_Fredholm {X : Type*} [NormedAddCommGroup X] [NormedSpace ℝ X] [CompleteSpace X]
+  (T : X →L[ℝ] X) (hT : IsCompactOperator T) :
+  FredholmOperators (ContinuousLinearMap.id ℝ X - T) where
+  finite_dimensional_kernel := by
+    let K := ker (ContinuousLinearMap.id ℝ X - T)
+    let B := Metric.closedBall (0 : K) 1
+    suffices : IsCompact B
+    exact FiniteDimensional.of_isCompact_closedBall₀ (by norm_num) this
+  closed_range := by
+    sorry
+  finite_dimensional_cokernel := by
+    sorry
+
+theorem id_minus_compact_T_index_zero {X : Type*} [NormedAddCommGroup X] [NormedSpace ℝ X] [CompleteSpace X]
+  (T : X →L[ℝ] X) (hT : IsCompactOperator T) (hF : FredholmOperators (ContinuousLinearMap.id ℝ X - T)) :
+  FredholmOperators.ind (ContinuousLinearMap.id ℝ X - T) = 0 := by
+  sorry
 
 /-(Riesz Theorem): The unit ball B in a Banach space X is compact if and
 only if B is finite dimensional.-/
