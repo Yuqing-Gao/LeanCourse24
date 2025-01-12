@@ -1,18 +1,53 @@
 import Mathlib
 import Mathlib.Topology.Basic
 
-/- Fredholm Operators over a fixed field enable notation. -/
-open Function Set Classical LinearMap ContinuousLinearMap Submodule
+open Function Set Classical LinearMap ContinuousLinearMap Submodule Filter Topology
 
-section ContinuousLinearMap
 /-This section contains some auxiliary definitions and lemmas-/
+section ContinuousLinearMap
+/-This definition define the coker of a continuous linear map-/
 def ContinuousLinearMap.coker {𝕜 : Type*} [NontriviallyNormedField 𝕜]
   {E : Type*} [NormedAddCommGroup E] [NormedSpace 𝕜 E]
   {F : Type*} [NormedAddCommGroup F] [NormedSpace 𝕜 F]
   (f : E →L[𝕜] F) : Module 𝕜 (F ⧸ LinearMap.range (f)) :=
     Submodule.Quotient.module (LinearMap.range f)
+
+/-Lemma: A continous linear map f:E →L[ℝ] F induces a continous linear map
+f_bar:E/ker(f) →L[R] F-/
+noncomputable def QuotientOfContinuousLinearMap
+  {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+  {F : Type*} [NormedAddCommGroup F] [NormedSpace ℝ F]
+  (f : E →L[ℝ] F): E ⧸ (LinearMap.ker f) →L[ℝ] F:=by
+    let f_bar_l':NormedAddGroupHom E F := by
+      use f.toFun
+      simp
+      obtain ⟨M,⟨hM₁,hM₂⟩⟩:=(ContinuousLinearMap.isBoundedLinearMap f).bound
+      use M
+      exact hM₂
+    have hf:∀ s ∈ Submodule.toAddSubgroup (LinearMap.ker f), f_bar_l' s = 0:=by
+      simp
+      exact fun s a ↦ a
+    let f_bar_l : NormedAddGroupHom (E ⧸ LinearMap.ker f) F :=NormedAddGroupHom.lift (Submodule.toAddSubgroup (LinearMap.ker f) :AddSubgroup E) (f_bar_l': NormedAddGroupHom E F) hf
+    let f_bar : E ⧸ (LinearMap.ker f) →L[ℝ] F:={
+      toFun:=f_bar_l.toFun
+      map_add':=by
+        simp
+      map_smul':=by
+        simp
+        intro m x
+        induction x using Quotient.ind; rename_i x
+        have h₁:∀x:E, f_bar_l ⟦x⟧=f x:=by exact fun x ↦ rfl
+        have h₂:∀x:E, (⟦x⟧:E ⧸ (LinearMap.ker f))=Submodule.Quotient.mk x:=by exact fun x ↦ rfl
+        rw [h₂]
+        have h₃:Submodule.Quotient.mk (m • x)=m • (Submodule.Quotient.mk x):=Submodule.Quotient.mk_smul (LinearMap.ker f) m x
+        rw[←h₃,←h₂,←h₂,h₁,h₁]
+        exact ContinuousLinearMap.map_smul_of_tower f m x}
+    use f_bar
+    continuity
+
 end ContinuousLinearMap
 
+/-This section contains basic definition for Fredholm Operators-/
 section FredholmOperatorsDef
 
 /-Remark: During the project, we would like to work in the field ℝ. we are not familiar
@@ -70,39 +105,11 @@ noncomputable def ind {𝕜 : Type*} [NontriviallyNormedField 𝕜]
       /-The Module.finrank is non-computable-/
 end FredholmOperators
 
-/-Lemma: A continous linear map f:E →L[ℝ] F induces a continous linear map
-f_bar:E/ker(f) →L[R] F-/
-noncomputable def QuotientOfContinuousLinearMap
-  {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
-  {F : Type*} [NormedAddCommGroup F] [NormedSpace ℝ F]
-  (f : E →L[ℝ] F): E ⧸ (LinearMap.ker f) →L[ℝ] F:=by
-    let f_bar_l':NormedAddGroupHom E F := by
-      use f.toFun
-      simp
-      obtain ⟨M,⟨hM₁,hM₂⟩⟩:=(ContinuousLinearMap.isBoundedLinearMap f).bound
-      use M
-      exact hM₂
-    have hf:∀ s ∈ Submodule.toAddSubgroup (LinearMap.ker f), f_bar_l' s = 0:=by
-      simp
-      exact fun s a ↦ a
-    let f_bar_l : NormedAddGroupHom (E ⧸ LinearMap.ker f) F :=NormedAddGroupHom.lift (Submodule.toAddSubgroup (LinearMap.ker f) :AddSubgroup E) (f_bar_l': NormedAddGroupHom E F) hf
-    let f_bar : E ⧸ (LinearMap.ker f) →L[ℝ] F:={
-      toFun:=f_bar_l.toFun
-      map_add':=by
-        simp
-      map_smul':=by
-        simp
-        intro m x
-        induction x using Quotient.ind; rename_i x
-        have h₁:∀x:E, f_bar_l ⟦x⟧=f x:=by exact fun x ↦ rfl
-        have h₂:∀x:E, (⟦x⟧:E ⧸ (LinearMap.ker f))=Submodule.Quotient.mk x:=by exact fun x ↦ rfl
-        rw [h₂]
-        have h₃:Submodule.Quotient.mk (m • x)=m • (Submodule.Quotient.mk x):=Submodule.Quotient.mk_smul (LinearMap.ker f) m x
-        rw[←h₃,←h₂,←h₂,h₁,h₁]
-        exact ContinuousLinearMap.map_smul_of_tower f m x}
-    use f_bar
-    continuity
+end FredholmOperatorsDef
 
+/-In this section we show that the assumption about f(E)'s closedness can be deduced from other
+assumptions in the definition of Fredholm operators-/
+section RangeClosednessIsUnnecessary
 /-Lemma: Let T : X → Y be a operator so that the range admits a closed
 complementary subspace. Then the range of T is closed.-/
 lemma RangeClosedIfAdmittingRangeClosedCompletement
@@ -186,14 +193,18 @@ lemma RangeClosedIfAdmittingRangeClosedCompletement
     /-We have a homeomorphism s between E_bar⨁C and F, now range f is closed because under this
     homeomorphism E_bar⨁0 is closed-/
     sorry
+end RangeClosednessIsUnnecessary
 
-
--- Invertibility
+/-In this section we show that any continuous linear operators which are close enough to a invertible
+operator are also also invertible-/
+section InvertibilityIsALocalProperty
+/-Here are some auxiliary lemmas about inverbility of continuous linear operators-/
+-- Define invertibility
 def IsInvertible {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     [NormedAddCommGroup F] [NormedSpace ℝ F] (f : E →L[ℝ] F) : Prop :=
   ∃ inv : F →L[ℝ] E, f.comp inv = ContinuousLinearMap.id ℝ F ∧ inv.comp f = ContinuousLinearMap.id ℝ E
 
--- Define the inverse operator
+-- Define the inverse operator when an operator is invertible
 noncomputable def get_inv {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     [NormedAddCommGroup F] [NormedSpace ℝ F] {f : E →L[ℝ] F}
     (hf : IsInvertible f) : F →L[ℝ] E := Classical.choose hf
@@ -204,7 +215,7 @@ lemma get_inv_spec {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     (hf : IsInvertible f) :
     f.comp (get_inv hf) = ContinuousLinearMap.id ℝ F ∧ (get_inv hf).comp f = ContinuousLinearMap.id ℝ E := Classical.choose_spec hf
 
--- The composition of operators is invertible
+-- The composition of invertible operators is invertible
 lemma IsInvertible.comp {E F G : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     [NormedAddCommGroup F] [NormedSpace ℝ F] [NormedAddCommGroup G] [NormedSpace ℝ G]
     {f : F →L[ℝ] G} {g : E →L[ℝ] F}
@@ -225,7 +236,7 @@ lemma IsInvertible.comp {E F G : Type*} [NormedAddCommGroup E] [NormedSpace ℝ 
     conv => left; right; rw [← ContinuousLinearMap.comp_assoc, hf_right]; simp
     exact hg_right
 
--- id 可逆
+-- id is invertible
 lemma Isinvertible.id {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
   : IsInvertible (ContinuousLinearMap.id ℝ E) := by
   rw [IsInvertible]
@@ -233,7 +244,7 @@ lemma Isinvertible.id {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
   use inv
   simp
 
--- Codomain is not trivial if there exists inverse operator
+-- Codomain of an invertible operator with non-trivial domain is non-trivial
 lemma exists_of_invertible {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     [NormedAddCommGroup F] [NormedSpace ℝ F] [Nontrivial E] {f : E →L[ℝ] F}
     (hf : IsInvertible f) :
@@ -253,7 +264,7 @@ lemma exists_of_invertible {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ
       rw [← ContinuousLinearMap.one_def]
       exact zero_ne_one' (E →L[ℝ] E)
 
--- 逆算子的范数是正的
+-- the norm of the inverse operator is positive
 lemma inv_norm_pos {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     [NormedAddCommGroup F] [NormedSpace ℝ F] [Nontrivial E] {f : E →L[ℝ] F}
     (hf : IsInvertible f) :
@@ -280,9 +291,7 @@ lemma inv_norm_pos {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     exact hy this.symm
   contradiction
 
--- neumann 级数收敛（算子版本）
-open Filter
-open Topology
+/-We need the inverbility of generalized Neumann seires during the proof.-/
 
 lemma ContinuousLinearMap.tendsto_comp {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
   {F : E →L[ℝ] E} {f : ℕ → E →L[ℝ] E} {g : E →L[ℝ] E}
@@ -419,7 +428,7 @@ lemma neumann_series_invertible {E : Type*} [NormedAddCommGroup E] [NormedSpace 
     intro l hl k hk
     rw [dist_eq_norm]
     unfold Sk
-    -- 讨论k和l的大小
+    -- compare k and 1
     by_cases hkl: k ≤ l
     have : ∑ i ∈ Finset.range l, T ^ i - ∑ i ∈ Finset.range k, T ^ i = ∑ i ∈ Finset.Ico k l, T ^ i := Eq.symm (Finset.sum_Ico_eq_sub (HPow.hPow T) hkl)
     calc ‖∑ i ∈ Finset.range l, T ^ i - ∑ i ∈ Finset.range k, T ^ i‖
@@ -446,8 +455,7 @@ lemma neumann_series_invertible {E : Type*} [NormedAddCommGroup E] [NormedSpace 
         · simp only [Real.log_pow]
           rw [@sub_lt_iff_lt_add']
           suffices: ↑k > (Real.log ε + Real.log (1 - θ)) / Real.log θ
-          · -- 除以一个小于零的数后变号
-            calc ↑k * Real.log θ
+          · calc ↑k * Real.log θ
                 < ((Real.log ε + Real.log (1 - θ)) / Real.log θ) * Real.log θ := mul_lt_mul_of_neg_right this h_log_neg
               _ = Real.log ε + Real.log (1 - θ) := by
                 refine div_mul_cancel₀ (Real.log ε + Real.log (1 - θ)) ?h1
@@ -639,6 +647,7 @@ theorem BoundedInvertibleOperatorPlusεIsInvertible
         simp
       rw [this inv] at hinv
       exact ⟨inv, hinv⟩
+end InvertibilityIsALocalProperty
 
 /- Let X be a Banach space and let T ∈ L(X) be compact.
 Then A := Id − T is a Fredholm operator with index zero. -/
@@ -711,9 +720,8 @@ lemma DecompositionOfFredholmPlusε
     ∃ (C : Type*) ,∃_:NormedAddCommGroup C ,∃_:NormedSpace ℝ C,
     ∃ (i :  (E'× K)≃L[ℝ] E), ∃(j: F≃L[ℝ] E'×C), ∃ q:K →L[ℝ] C,
       j∘ (f + p) ∘ i = λ⟨a,b⟩↦⟨a,q b⟩:=by sorry
-end FredholmOperatorsDef
 
-#check RangeClosedIfAdmittingRangeClosedCompletement
+
 /-The following lemma is about how to extract the norm ‖x‖ of x∈X from |ρ(x)|, where X is a Banach
 space and ρ∈X*:=Hom(X,k).
 Lemma: ∀x∈X,‖x‖=sup{|ρ(x)|,ρ∈Hom(X,k)}-/
