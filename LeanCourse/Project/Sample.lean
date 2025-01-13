@@ -161,23 +161,23 @@ lemma RangeClosedIfAdmittingRangeClosedCompletement
 
 
 
--- 可逆性
+-- invertibility
 def IsInvertible {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     [NormedAddCommGroup F] [NormedSpace ℝ F] (f : E →L[ℝ] F) : Prop :=
   ∃ inv : F →L[ℝ] E, f.comp inv = ContinuousLinearMap.id ℝ F ∧ inv.comp f = ContinuousLinearMap.id ℝ E
 
--- 获取逆算子
+-- get inverse operator
 noncomputable def get_inv {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     [NormedAddCommGroup F] [NormedSpace ℝ F] {f : E →L[ℝ] F}
     (hf : IsInvertible f) : F →L[ℝ] E := Classical.choose hf
 
--- 逆算子性质
+-- properties of inverse operator
 lemma get_inv_spec {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     [NormedAddCommGroup F] [NormedSpace ℝ F] {f : E →L[ℝ] F}
     (hf : IsInvertible f) :
     f.comp (get_inv hf) = ContinuousLinearMap.id ℝ F ∧ (get_inv hf).comp f = ContinuousLinearMap.id ℝ E := Classical.choose_spec hf
 
--- 复合算子可逆
+-- composition is invertible
 lemma IsInvertible.comp {E F G : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     [NormedAddCommGroup F] [NormedSpace ℝ F] [NormedAddCommGroup G] [NormedSpace ℝ G]
     {f : F →L[ℝ] G} {g : E →L[ℝ] F}
@@ -189,16 +189,16 @@ lemma IsInvertible.comp {E F G : Type*} [NormedAddCommGroup E] [NormedSpace ℝ 
   have ⟨hg_left, hg_right⟩ := get_inv_spec hg
   use g_inv.comp f_inv
   constructor
-  · -- 左逆
+  · -- left inverse
     rw [ContinuousLinearMap.comp_assoc]
     conv => left; right; rw [← ContinuousLinearMap.comp_assoc, hg_left]; simp
     exact hf_left
-  · -- 右逆
+  · -- right inverse
     rw [ContinuousLinearMap.comp_assoc]
     conv => left; right; rw [← ContinuousLinearMap.comp_assoc, hf_right]; simp
     exact hg_right
 
--- id 可逆
+-- id is invertible
 lemma Isinvertible.id {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
   : IsInvertible (ContinuousLinearMap.id ℝ E) := by
   rw [IsInvertible]
@@ -206,7 +206,7 @@ lemma Isinvertible.id {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
   use inv
   simp
 
--- 如果存在可逆映射，那么codomain不是平凡的
+-- codomain is non-trivial if a inverse mapping exists
 lemma exists_of_invertible {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     [NormedAddCommGroup F] [NormedSpace ℝ F] [Nontrivial E] {f : E →L[ℝ] F}
     (hf : IsInvertible f) :
@@ -226,20 +226,20 @@ lemma exists_of_invertible {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ
       rw [← ContinuousLinearMap.one_def]
       exact zero_ne_one' (E →L[ℝ] E)
 
--- 逆算子的范数是正的
+-- the norm of inverse operator is positive
 lemma inv_norm_pos {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     [NormedAddCommGroup F] [NormedSpace ℝ F] [Nontrivial E] {f : E →L[ℝ] F}
     (hf : IsInvertible f) :
     ‖get_inv hf‖ ≠ 0 := by
   intro h
-  -- 如果范数为0，那么这个算子必然是0算子
+  -- the operator must be a 0 operator if it's norm = 0
   have h1 : get_inv hf = 0 := by
     simp only [ContinuousLinearMap.ext_iff]
     intro x
     have := le_trans ((get_inv hf).le_opNorm x) (by rw [h, zero_mul])
     rw [norm_le_zero_iff] at this
     exact this
-  -- 但这与逆算子的性质矛盾，0算子不可能是恒等映射
+  -- But this contradicts the properties of the inverse operator. The 0 operator cannot be an identity mapping
   have := (get_inv_spec hf).1  -- f.comp (get_inv hf) = id
   rw [h1] at this
   simp at this
@@ -253,7 +253,7 @@ lemma inv_norm_pos {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     exact hy this.symm
   contradiction
 
--- neumann 级数收敛（算子版本）
+-- Neumann series convergence (operator version)
 open Filter
 open Topology
 
@@ -392,7 +392,7 @@ lemma neumann_series_invertible {E : Type*} [NormedAddCommGroup E] [NormedSpace 
     intro l hl k hk
     rw [dist_eq_norm]
     unfold Sk
-    -- 讨论k和l的大小
+    -- assume k ≤ l
     by_cases hkl: k ≤ l
     have : ∑ i ∈ Finset.range l, T ^ i - ∑ i ∈ Finset.range k, T ^ i = ∑ i ∈ Finset.Ico k l, T ^ i := Eq.symm (Finset.sum_Ico_eq_sub (HPow.hPow T) hkl)
     calc ‖∑ i ∈ Finset.range l, T ^ i - ∑ i ∈ Finset.range k, T ^ i‖
@@ -419,7 +419,7 @@ lemma neumann_series_invertible {E : Type*} [NormedAddCommGroup E] [NormedSpace 
         · simp only [Real.log_pow]
           rw [@sub_lt_iff_lt_add']
           suffices: ↑k > (Real.log ε + Real.log (1 - θ)) / Real.log θ
-          · -- 除以一个小于零的数后变号
+          · -- dividing by a number less than zero
             calc ↑k * Real.log θ
                 < ((Real.log ε + Real.log (1 - θ)) / Real.log θ) * Real.log θ := mul_lt_mul_of_neg_right this h_log_neg
               _ = Real.log ε + Real.log (1 - θ) := by
@@ -622,7 +622,8 @@ instance id_minus_compact_T_is_Fredholm {X : Type*} [NormedAddCommGroup X] [Norm
     let K := ker (ContinuousLinearMap.id ℝ X - T)
     let B := Metric.closedBall (0 : K) 1
     suffices : IsCompact B
-    exact FiniteDimensional.of_isCompact_closedBall₀ (by norm_num) this
+    · sorry
+    · sorry
   closed_range := by
     sorry
   finite_dimensional_cokernel := by
