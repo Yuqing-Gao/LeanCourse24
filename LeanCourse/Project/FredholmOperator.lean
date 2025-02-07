@@ -107,6 +107,56 @@ end FredholmOperators
 
 end FredholmOperatorsDef
 
+/-Let Id be an example of Fredholm-/
+section ExampleOfFredholm
+
+variable {𝕜 : Type*} [NontriviallyNormedField 𝕜]
+variable {E : Type*} [NormedAddCommGroup E] [NormedSpace 𝕜 E] [CompleteSpace E]
+variable {F : Type*} [NormedAddCommGroup F] [NormedSpace 𝕜 F] [CompleteSpace F]
+
+/-Id has properties of a Fredholm operator-/
+theorem id_is_fredholm : FredholmOperators (ContinuousLinearMap.id 𝕜 E) := {
+  finite_dimensional_kernel := by {
+    suffices h : LinearMap.ker (ContinuousLinearMap.id 𝕜 E) = ⊥
+    · rw [h]
+      exact Module.Finite.bot 𝕜 E
+    ext x
+    simp [LinearMap.mem_ker]
+  },
+  closed_range := by {
+    have h : LinearMap.range (ContinuousLinearMap.id 𝕜 E) = ⊤
+    · ext x
+      simp [LinearMap.mem_range]
+    rw [h]
+    exact closure_subset_iff_isClosed.mp fun ⦃a⦄ a ↦ trivial
+  },
+  finite_dimensional_cokernel := by {
+    suffices h : LinearMap.range (ContinuousLinearMap.id 𝕜 E) = ⊤
+    · rw [h]
+      exact Module.IsNoetherian.finite 𝕜 (E ⧸ ⊤)
+    refine range_eq_top.mpr ?h.a
+    exact RightInverse.surjective (congrFun rfl)
+  }
+}
+
+/-Id has the index of zero-/
+theorem id_index_zero [FredholmOperators (ContinuousLinearMap.id 𝕜 E)] :
+  FredholmOperators.ind (ContinuousLinearMap.id 𝕜 E) = 0 := by
+  unfold FredholmOperators.ind
+  have h1 : FredholmOperators.ker (ContinuousLinearMap.id 𝕜 E) = ⊥ := by
+    ext x
+    simp [LinearMap.mem_ker]
+    exact Eq.to_iff rfl
+  have h2 : FredholmOperators.ran (ContinuousLinearMap.id 𝕜 E) = ⊤ := by
+    unfold FredholmOperators.ran
+    ext x
+    simp [LinearMap.mem_range]
+  rw [h1, h2]
+  rw [finrank_bot 𝕜 E, Module.finrank_zero_of_subsingleton]
+  simp
+
+end ExampleOfFredholm
+
 /-In this section we show that the assumption about f(E)'s closedness can be deduced from other
 assumptions in the definition of Fredholm operators-/
 section RangeClosednessIsUnnecessary
