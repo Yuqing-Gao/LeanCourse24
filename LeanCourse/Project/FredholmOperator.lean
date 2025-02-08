@@ -107,6 +107,56 @@ end FredholmOperators
 
 end FredholmOperatorsDef
 
+/-Let Id be an example of Fredholm-/
+section ExampleOfFredholm
+
+variable {𝕜 : Type*} [NontriviallyNormedField 𝕜]
+variable {E : Type*} [NormedAddCommGroup E] [NormedSpace 𝕜 E] [CompleteSpace E]
+variable {F : Type*} [NormedAddCommGroup F] [NormedSpace 𝕜 F] [CompleteSpace F]
+
+/-Id has properties of a Fredholm operator-/
+theorem id_is_fredholm : FredholmOperators (ContinuousLinearMap.id 𝕜 E) := {
+  finite_dimensional_kernel := by {
+    suffices h : LinearMap.ker (ContinuousLinearMap.id 𝕜 E) = ⊥
+    · rw [h]
+      exact Module.Finite.bot 𝕜 E
+    ext x
+    simp [LinearMap.mem_ker]
+  },
+  closed_range := by {
+    have h : LinearMap.range (ContinuousLinearMap.id 𝕜 E) = ⊤
+    · ext x
+      simp [LinearMap.mem_range]
+    rw [h]
+    exact closure_subset_iff_isClosed.mp fun ⦃a⦄ a ↦ trivial
+  },
+  finite_dimensional_cokernel := by {
+    suffices h : LinearMap.range (ContinuousLinearMap.id 𝕜 E) = ⊤
+    · rw [h]
+      exact Module.IsNoetherian.finite 𝕜 (E ⧸ ⊤)
+    refine range_eq_top.mpr ?h.a
+    exact RightInverse.surjective (congrFun rfl)
+  }
+}
+
+/-Id has the index of zero-/
+theorem id_index_zero [FredholmOperators (ContinuousLinearMap.id 𝕜 E)] :
+  FredholmOperators.ind (ContinuousLinearMap.id 𝕜 E) = 0 := by
+  unfold FredholmOperators.ind
+  have h1 : FredholmOperators.ker (ContinuousLinearMap.id 𝕜 E) = ⊥ := by
+    ext x
+    simp [LinearMap.mem_ker]
+    exact Eq.to_iff rfl
+  have h2 : FredholmOperators.ran (ContinuousLinearMap.id 𝕜 E) = ⊤ := by
+    unfold FredholmOperators.ran
+    ext x
+    simp [LinearMap.mem_range]
+  rw [h1, h2]
+  rw [finrank_bot 𝕜 E, Module.finrank_zero_of_subsingleton]
+  simp
+
+end ExampleOfFredholm
+
 /-In this section we show that the assumption about f(E)'s closedness can be deduced from other
 assumptions in the definition of Fredholm operators-/
 section RangeClosednessIsUnnecessary
@@ -348,6 +398,7 @@ def IsInvertible {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     [NormedAddCommGroup F] [NormedSpace ℝ F] (f : E →L[ℝ] F) : Prop :=
   ∃ inv : F →L[ℝ] E, f.comp inv = ContinuousLinearMap.id ℝ F ∧ inv.comp f = ContinuousLinearMap.id ℝ E
 
+#check ContinuousLinearMap.inverse
 -- Define the inverse operator when an operator is invertible
 noncomputable def get_inv {E F : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
     [NormedAddCommGroup F] [NormedSpace ℝ F] {f : E →L[ℝ] F}
@@ -567,12 +618,12 @@ lemma neumann_series_invertible {E : Type*} [NormedAddCommGroup E] [NormedSpace 
     rw [@Metric.cauchySeq_iff]
     intro ε hε
     have h1 : 1 - θ > 0 := by linarith [θ_lt_1]
-    let k₀ := Nat.ceil ((Real.log (ε) + Real.log (1-θ))/ Real.log (θ)) + 1 -- k₀ should be chosen properly
-    use k₀
+    let N := Nat.ceil ((Real.log (ε) + Real.log (1-θ))/ Real.log (θ)) + 1 -- N should be chosen properly
+    use N
     intro l hl k hk
     rw [dist_eq_norm]
     unfold Sk
-    -- compare k and 1
+    -- compare k and l
     by_cases hkl: k ≤ l
     have : ∑ i ∈ Finset.range l, T ^ i - ∑ i ∈ Finset.range k, T ^ i = ∑ i ∈ Finset.Ico k l, T ^ i := Eq.symm (Finset.sum_Ico_eq_sub (HPow.hPow T) hkl)
     calc ‖∑ i ∈ Finset.range l, T ^ i - ∑ i ∈ Finset.range k, T ^ i‖
@@ -607,7 +658,7 @@ lemma neumann_series_invertible {E : Type*} [NormedAddCommGroup E] [NormedSpace 
               _ = Real.log (1 - θ) + Real.log ε := by rw [add_comm]
           · have h0: ↑k > ↑⌈(Real.log ε + Real.log (1 - θ)) / Real.log θ⌉₊ := by
               calc ↑k
-                  ≥ ↑k₀ := Nat.cast_le.mpr hk
+                  ≥ ↑N := Nat.cast_le.mpr hk
                 _ = ↑(⌈(Real.log ε + Real.log (1 - θ)) / Real.log θ⌉₊ + 1) := rfl
                 _ = ↑⌈(Real.log ε + Real.log (1 - θ)) / Real.log θ⌉₊ + 1 := by simp
                 _ > ↑⌈(Real.log ε + Real.log (1 - θ)) / Real.log θ⌉₊ := by exact lt_add_one ⌈(Real.log ε + Real.log (1 - θ)) / Real.log θ⌉₊
@@ -655,7 +706,7 @@ lemma neumann_series_invertible {E : Type*} [NormedAddCommGroup E] [NormedSpace 
                 _ = Real.log (1 - θ) + Real.log ε := by rw [add_comm]
             · have h0: ↑l > ↑⌈(Real.log ε + Real.log (1 - θ)) / Real.log θ⌉₊ := by
                 calc ↑l
-                    ≥ ↑k₀ := Nat.cast_le.mpr hl
+                    ≥ ↑N := Nat.cast_le.mpr hl
                   _ = ↑(⌈(Real.log ε + Real.log (1 - θ)) / Real.log θ⌉₊ + 1) := rfl
                   _ = ↑⌈(Real.log ε + Real.log (1 - θ)) / Real.log θ⌉₊ + 1 := by simp
                   _ > ↑⌈(Real.log ε + Real.log (1 - θ)) / Real.log θ⌉₊ := by exact lt_add_one ⌈(Real.log ε + Real.log (1 - θ)) / Real.log θ⌉₊
@@ -792,26 +843,6 @@ theorem BoundedInvertibleOperatorPlusεIsInvertible
       rw [this inv] at hinv
       exact ⟨inv, hinv⟩
 end InvertibilityIsALocalProperty
-
-/- Let X be a Banach space and let T ∈ L(X) be compact.
-Then A := Id − T is a Fredholm operator with index zero. -/
-instance id_minus_compact_T_is_Fredholm {X : Type*} [NormedAddCommGroup X] [NormedSpace ℝ X] [CompleteSpace X]
-  (T : X →L[ℝ] X) (hT : IsCompactOperator T) :
-  FredholmOperators (ContinuousLinearMap.id ℝ X - T) where
-  finite_dimensional_kernel := by
-    let K := ker (ContinuousLinearMap.id ℝ X - T)
-    let B := Metric.closedBall (0 : K) 1
-    suffices : IsCompact B
-    exact FiniteDimensional.of_isCompact_closedBall₀ (by norm_num) this
-  closed_range := by
-    sorry
-  finite_dimensional_cokernel := by
-    sorry
-
-theorem id_minus_compact_T_index_zero {X : Type*} [NormedAddCommGroup X] [NormedSpace ℝ X] [CompleteSpace X]
-  (T : X →L[ℝ] X) (hT : IsCompactOperator T) (hF : FredholmOperators (ContinuousLinearMap.id ℝ X - T)) :
-  FredholmOperators.ind (ContinuousLinearMap.id ℝ X - T) = 0 := by
-  sorry
 
 /-(Riesz Theorem): The unit ball B in a Banach space X is compact if and
 only if B is finite dimensional.-/
