@@ -2,9 +2,9 @@
 
 Please fill out the following. Fill in the project topic once you have decided.
 ```
-First & last name:
-Project topic:
-Partner (optional):
+First & last name: Yuqing Gao
+Project topic: functional analysis (Fredholm operators)
+Partner (optional): Mingyu Xia
 ```
 
 ## Your own project
