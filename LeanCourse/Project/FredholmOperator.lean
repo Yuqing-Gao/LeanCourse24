@@ -386,7 +386,47 @@ lemma RangeClosedIfAdmittingRangeClosedCompletement
     let s:=Homeomorph.homeomorphOfContinuousOpen S' h₁S' h₂S'
     /-We have a homeomorphism s between E_bar⨁C and F, now range f is closed because under this
     homeomorphism E_bar⨁0 is closed-/
-    sorry
+    let E_bar_zero : Set (E_bar × C) := Set.range (fun x ↦ (x, (0 : C)))
+    have h_closed_E : IsClosed E_bar_zero := by
+      have h_eq : E_bar_zero = (Set.univ : Set E_bar).prod {(0 : C)} := by
+        ext ⟨x, c⟩
+        constructor
+        · intro h
+          obtain ⟨y, hy⟩ := h
+          simp at hy
+          simp [hy]
+          tauto
+        · intro h
+          simp at h
+          use x
+          simp
+          have := h.2
+          simp at this
+          exact this.symm
+      rw [h_eq]
+      exact IsClosed.prod isClosed_univ isClosed_singleton
+    have h_closed_equiv : IsClosed (s '' E_bar_zero) ↔ IsClosed E_bar_zero := Homeomorph.isClosed_image s
+    have h_eq : s '' E_bar_zero = (LinearMap.range f : Set F) := by
+      ext y
+      constructor
+      · intro h
+        rcases h with ⟨⟨x, c⟩, hx, hy⟩
+        rcases hx with ⟨x', hx'⟩
+        rw [hrange]
+        simp at hx'
+        rw [← hx'.2] at hy
+        unfold s at hy; simp [Homeomorph.homeomorphOfContinuousOpen] at hy; simp [S', S] at hy
+        exact ⟨x, hy⟩
+      · intro h
+        rw [hrange] at h
+        rcases h with ⟨x, hx⟩
+        use ⟨x, 0⟩
+        constructor
+        · use x
+        · unfold s; simp; simp [S', S]; exact hx
+    have h1 : IsClosed (s '' E_bar_zero) := h_closed_equiv.mpr h_closed_E
+    have h2 : s '' E_bar_zero = (LinearMap.range f : Set F) := h_eq
+    exact h2 ▸ h1
 end RangeClosednessIsUnnecessary
 
 /-In this section we show that any continuous linear operators which are close enough to a invertible
